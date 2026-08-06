@@ -1,0 +1,12 @@
+
+> agent-starter-react@0.1.0 dev /workspaces/murf-livekit-starter/frontend
+> next dev --turbopack
+
+   ▲ Next.js 15.5.9 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://10.0.17.2:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1800ms
+[?25h
