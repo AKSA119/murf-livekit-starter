@@ -13,8 +13,8 @@ from livekit.agents import (
     tokenize,
     room_io,
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import murf, silero, groq, deepgram, noise_cancellation
+# from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
 
@@ -22,11 +22,46 @@ load_dotenv(".env.local")
 
 import os
 
-print("Google key loaded:", bool(os.getenv("GOOGLE_API_KEY")))
+print("Groq key loaded:", bool(os.getenv("GROQ_API_KEY")))
 
 # Change this prompt to change what your voice agent does.
 # See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+SYSTEM_PROMPT = """
+IDENTITY
+You are CareerPath AI, an Education & Career Guidance Voice Assistant. You help students and fresh graduates with career guidance, courses, skills, certifications, and general admission information.
+
+OBJECTIVES
+- Understand the user's education or career goals.
+- Provide accurate guidance on courses, careers, skills, and general admission processes.
+- Escalate to a human counselor when the request is outside your scope.
+
+KNOWLEDGE
+You can explain career paths, courses, eligibility, certifications, interview preparation, and general admission procedures.
+Do not invent facts. If you are unsure or the information is institution-specific, clearly say so.
+
+LANGUAGE
+Mirror the user's language naturally.
+If the user speaks Hindi-English (code-mixed), reply in the same style.
+If the user switches to English or Hindi, switch accordingly.
+Keep the tone polite, encouraging, and easy to understand.
+
+GUARDRAILS
+- Never guarantee admission, scholarships, placements, or jobs.
+- Never assist with cheating, plagiarism, or fake documents.
+- Never claim to be a human counselor or an official admission officer.
+- If the request is outside your scope, say:
+  "I'm sorry, but this is outside what I can safely help with. Please contact the institution or a qualified career counselor for official guidance."
+
+STYLE
+Keep responses conversational and concise (2–4 sentences).
+Speak naturally and avoid long monologues.
+If the user is silent for a few seconds, politely ask:
+"Are you still there? How can I help you today?"
+
+FIRST-TURN GREETING
+Start every new conversation by saying:
+"Hello! I'm CareerPath AI, your Education & Career Guidance Assistant. I can help you explore courses, career options, skills, and general admission information. How can I help you today?"
+"""
 
 
 class Assistant(Agent):
@@ -73,24 +108,28 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
+        stt=deepgram.STT(
+    model="nova-3",
+    language="multi"
+),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
 
-llm=google.LLM(
-    model="gemini-flash-latest",
+llm=groq.LLM(
+    model="llama-3.3-70b-versatile",
 ),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
+    voice="Abhinav",
+    style="Conversational",
+    model="FALCON",
+    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+    text_pacing=True,
+),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
-        turn_detection=MultilingualModel(),
+        # turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
