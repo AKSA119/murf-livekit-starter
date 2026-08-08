@@ -1,22 +1,6 @@
-import { Button } from '@/components/ui/button';
+'use client';
 
-function WelcomeImage() {
-  return (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="text-fg0 mb-4 size-16"
-    >
-      <path
-        d="M15 24V40C15 40.7957 14.6839 41.5587 14.1213 42.1213C13.5587 42.6839 12.7956 43 12 43C11.2044 43 10.4413 42.6839 9.87868 42.1213C9.31607 41.5587 9 40.7957 9 40V24C9 23.2044 9.31607 22.4413 9.87868 21.8787C10.4413 21.3161 11.2044 21 12 21C12.7956 21 13.5587 21.3161 14.1213 21.8787C14.6839 22.4413 15 23.2044 15 24ZM22 5C21.2044 5 20.4413 5.31607 19.8787 5.87868C19.3161 6.44129 19 7.20435 19 8V56C19 56.7957 19.3161 57.5587 19.8787 58.1213C20.4413 58.6839 21.2044 59 22 59C22.7956 59 23.5587 58.6839 24.1213 58.1213C24.6839 57.5587 25 56.7957 25 56V8C25 7.20435 24.6839 6.44129 24.1213 5.87868C23.5587 5.31607 22.7956 5 22 5ZM32 13C31.2044 13 30.4413 13.3161 29.8787 13.8787C29.3161 14.4413 29 15.2044 29 16V48C29 48.7957 29.3161 49.5587 29.8787 50.1213C30.4413 50.6839 31.2044 51 32 51C32.7956 51 33.5587 50.6839 34.1213 50.1213C34.6839 49.5587 35 48.7957 35 48V16C35 15.2044 34.6839 14.4413 34.1213 13.8787C33.5587 13.3161 32.7956 13 32 13ZM42 21C41.2043 21 40.4413 21.3161 39.8787 21.8787C39.3161 22.4413 39 23.2044 39 24V40C39 40.7957 39.3161 41.5587 39.8787 42.1213C40.4413 42.6839 41.2043 43 42 43C42.7957 43 43.5587 42.6839 44.1213 42.1213C44.6839 41.5587 45 40.7957 45 40V24C45 23.2044 44.6839 22.4413 44.1213 21.8787C43.5587 21.3161 42.7957 21 42 21ZM52 17C51.2043 17 50.4413 17.3161 49.8787 17.8787C49.3161 18.4413 49 19.2044 49 20V44C49 44.7957 49.3161 45.5587 49.8787 46.1213C50.4413 46.6839 51.2043 47 52 47C52.7957 47 53.5587 46.6839 54.1213 46.1213C54.6839 45.5587 55 44.7957 55 44V20C55 19.2044 54.6839 18.4413 54.1213 17.8787C53.5587 17.3161 52.7957 17 52 17Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+import { Button } from '@/components/ui/button';
 
 interface WelcomeViewProps {
   startButtonText: string;
@@ -26,38 +10,123 @@ interface WelcomeViewProps {
 export const WelcomeView = ({
   startButtonText,
   onStartCall,
-  ref,
-}: React.ComponentProps<'div'> & WelcomeViewProps) => {
+}: WelcomeViewProps) => {
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
-        <WelcomeImage />
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#05050b] text-white">
+      {/* Background glow */}
+      <div className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/10 blur-[140px]" />
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
+      <div className="absolute -left-40 -top-40 h-[400px] w-[400px] rounded-full bg-blue-600/10 blur-[120px]" />
+
+      <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-fuchsia-600/10 blur-[120px]" />
+
+      {/* Top badge */}
+      <div className="absolute right-8 top-7 hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium tracking-wider text-white/60 backdrop-blur-md md:block">
+        ✦ AI CAREER COMPANION
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 flex w-full max-w-4xl flex-col items-center px-6 text-center">
+        
+        {/* Voice Orb */}
+        <div className="relative mb-10 flex h-36 w-36 items-center justify-center">
+          {/* Outer rings */}
+          <div className="absolute inset-0 animate-ping rounded-full border border-violet-400/20" />
+          <div className="absolute -inset-4 rounded-full border border-violet-400/10" />
+          <div className="absolute -inset-8 rounded-full border border-blue-400/5" />
+
+          {/* Glow */}
+          <div className="absolute inset-0 rounded-full bg-violet-500/30 blur-3xl" />
+
+          {/* Orb */}
+          <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-white/20 bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-600 shadow-[0_0_80px_rgba(124,58,237,0.45)]">
+            <div className="absolute inset-3 rounded-full bg-white/10 backdrop-blur-sm" />
+
+            <span className="relative text-5xl">🎙️</span>
+          </div>
+        </div>
+
+        {/* Small label */}
+        <div className="mb-5 flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-500/10 px-4 py-2 text-xs font-medium text-violet-200">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+          AI VOICE ASSISTANT
+        </div>
+
+        {/* Heading */}
+        <h1 className="bg-gradient-to-r from-white via-violet-100 to-blue-200 bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-7xl">
+          CareerPath AI
+        </h1>
+
+        <p className="mt-5 text-xl font-medium text-white/90 md:text-2xl">
+          Your career. Your questions. One conversation.
         </p>
 
+        <p className="mt-5 max-w-2xl text-sm leading-7 text-white/50 md:text-base">
+          Talk naturally with your AI career companion. Explore careers,
+          discover skills, find courses, and build a roadmap for your future.
+        </p>
+
+        {/* CTA */}
         <Button
           size="lg"
           onClick={onStartCall}
-          className="mt-6 w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+          className="group relative mt-9 h-14 w-72 overflow-hidden rounded-full border border-white/20 bg-gradient-to-r from-violet-600 to-blue-600 text-base font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.35)] transition-all duration-300 hover:scale-105 hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)]"
         >
-          {startButtonText}
-        </Button>
-      </section>
+          <span className="relative z-10 flex items-center justify-center gap-3">
+            <span className="text-lg">🎙️</span>
+            {startButtonText}
+            <span className="transition-transform duration-300 group-hover:translate-x-1">
+              →
+            </span>
+          </span>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
-            Voice AI quickstart
-          </a>
-          .
+          <div className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-full" />
+        </Button>
+
+        {/* Supported languages */}
+        <div className="mt-6 flex items-center gap-3 text-xs text-white/40">
+          <span>English</span>
+          <span className="h-1 w-1 rounded-full bg-white/30" />
+          <span>Hindi</span>
+          <span className="h-1 w-1 rounded-full bg-white/30" />
+          <span>Hinglish</span>
+        </div>
+
+        {/* Feature cards */}
+        <div className="mt-14 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md transition-all hover:border-violet-400/30 hover:bg-white/[0.06]">
+            <div className="mb-2 text-xl">💬</div>
+            <p className="text-sm font-semibold text-white/80">
+              Natural Conversation
+            </p>
+            <p className="mt-1 text-xs text-white/40">
+              Just speak normally
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md transition-all hover:border-violet-400/30 hover:bg-white/[0.06]">
+            <div className="mb-2 text-xl">🧭</div>
+            <p className="text-sm font-semibold text-white/80">
+              Career Guidance
+            </p>
+            <p className="mt-1 text-xs text-white/40">
+              Find your direction
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md transition-all hover:border-violet-400/30 hover:bg-white/[0.06]">
+            <div className="mb-2 text-xl">⚡</div>
+            <p className="text-sm font-semibold text-white/80">
+              Instant Answers
+            </p>
+            <p className="mt-1 text-xs text-white/40">
+              Powered by AI
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-8 text-[11px] tracking-wide text-white/25">
+          Your conversation starts with one simple “Hello”.
         </p>
       </div>
     </div>

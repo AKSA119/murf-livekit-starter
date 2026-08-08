@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import { useTheme } from 'next-themes';
 import { AnimatePresence, motion } from 'motion/react';
@@ -24,7 +24,7 @@ const VIEW_MOTION_PROPS = {
   exit: 'hidden',
   transition: {
     duration: 0.5,
-    ease: 'linear',
+    ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
   },
 };
 
