@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -42,6 +43,59 @@ logger = logging.getLogger("careerpath-agent")
 # =========================================================
 
 load_dotenv(".env.local")
+
+# =========================================================
+# CAREER DATASET
+# =========================================================
+
+CAREER_DATA_PATH = (
+    Path(__file__).resolve().parent.parent / "career_data.json"
+)
+
+
+def load_career_data() -> dict:
+    """
+    Load the local CareerPath AI career dataset.
+
+    This dataset is intentionally local and curated.
+    It is not treated as a live source.
+    """
+
+    try:
+        with CAREER_DATA_PATH.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            data = json.load(file)
+
+        if not isinstance(data, dict):
+            raise ValueError(
+                "career_data.json must contain a JSON object."
+            )
+
+        return data
+
+    except FileNotFoundError:
+        logger.error(
+            "Career dataset not found at %s",
+            CAREER_DATA_PATH,
+        )
+        return {}
+
+    except json.JSONDecodeError:
+        logger.exception(
+            "career_data.json contains invalid JSON"
+        )
+        return {}
+
+    except Exception:
+        logger.exception(
+            "Failed to load career dataset"
+        )
+        return {}
+
+
+CAREER_DATA = load_career_data()
 
 
 # =========================================================
@@ -489,6 +543,153 @@ class Assistant(Agent):
             return (
                 "Unable to retrieve caller memory right now. "
                 f"Error: {error}"
+            ) 
+
+                # =====================================================
+    # TOOL 2 — CAREER / COURSE LOOKUP
+    # =====================================================
+
+    @function_tool
+    async def lookup_career(
+        self,
+        context: RunContext,
+        career_or_field: str,
+    ) -> str:
+        """
+        Look up structured career guidance from the local
+        CareerPath dataset.
+
+        Use this tool when the caller asks for specific
+        factual information about a career or career field,
+        such as:
+
+        - required education
+        - important skills
+        - common tools
+        - certifications
+        - beginner projects
+        - interview topics
+        - career suitability
+
+        Do not use this tool for casual conversation.
+
+        The tool only returns information contained in the
+        local career dataset.
+
+        Do not invent missing information.
+        """
+
+        query = career_or_field.strip().lower()
+
+        if not query:
+            return (
+                "No career or field was provided. "
+                "Ask the caller which career or field they mean."
+            )
+
+        try:
+            careers = CAREER_DATA.get("careers", [])
+
+            if not isinstance(careers, list):
+                return (
+                    "The career dataset is currently unavailable."
+                )
+
+            # -------------------------------------------------
+            # Exact ID / name match
+            # -------------------------------------------------
+
+            for career in careers:
+
+                if not isinstance(career, dict):
+                    continue
+
+                career_id = str(
+                    career.get("id", "")
+                ).lower()
+
+                career_name = str(
+                    career.get("name", "")
+                ).lower()
+
+                if (
+                    query == career_id
+                    or query == career_name
+                ):
+                    return json.dumps(
+                        {
+                            "source": "CareerPath local dataset",
+                            "dataset_last_updated": (
+                                CAREER_DATA.get(
+                                    "last_updated",
+                                    "unknown",
+                                )
+                            ),
+                            "career": career,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+
+            # -------------------------------------------------
+            # Partial match
+            # -------------------------------------------------
+
+            matches = []
+
+            for career in careers:
+
+                if not isinstance(career, dict):
+                    continue
+
+                searchable_text = " ".join(
+                    [
+                        str(career.get("id", "")),
+                        str(career.get("name", "")),
+                        str(career.get("category", "")),
+                        str(career.get("description", "")),
+                    ]
+                ).lower()
+
+                if query in searchable_text:
+                    matches.append(career)
+
+            if not matches:
+                return (
+                    f"No matching career was found for "
+                    f"'{career_or_field}' in the local "
+                    f"CareerPath dataset. "
+                    f"Do not invent career-specific facts."
+                )
+
+            return json.dumps(
+                {
+                    "source": "CareerPath local dataset",
+                    "dataset_last_updated": (
+                        CAREER_DATA.get(
+                            "last_updated",
+                            "unknown",
+                        )
+                    ),
+                    "matches": matches[:5],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Career lookup failed for query '%s'",
+                career_or_field,
+            )
+
+            return (
+                "The career information service is "
+                "temporarily unavailable. "
+                "Please tell the caller that the career "
+                "data could not be retrieved right now. "
+                "Do not invent an answer."
             )
 
     # =====================================================

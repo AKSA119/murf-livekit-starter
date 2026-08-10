@@ -1,0 +1,577 @@
+{
+  "dataset_name": "CareerPath AI Career Guidance Dataset",
+  "dataset_type": "hand-built local dataset",
+  "last_updated": "2026-08-10",
+  "description": "A curated local dataset for general career, course, skills, certification, and interview guidance. This dataset is for general guidance only and does not guarantee admission, employment, salary, or placement.",
+  "careers": [
+    {
+      "id": "software_developer",
+      "name": "Software Developer",
+      "category": "Technology",
+      "description": "Designs, develops, tests, debugs, and maintains software applications.",
+      "suitable_for": [
+        "Students interested in programming",
+        "Students interested in building applications",
+        "Students interested in technology"
+      ],
+      "common_education": [
+        "B.Tech/B.E. in Computer Science or related field",
+        "BCA",
+        "MCA",
+        "Diploma in Computer Science",
+        "Other degrees with strong programming skills"
+      ],
+      "important_skills": [
+        "Python",
+        "Java",
+        "JavaScript",
+        "Data structures",
+        "Algorithms",
+        "Git",
+        "SQL",
+        "Problem solving",
+        "Debugging"
+      ],
+      "common_tools": [
+        "Git",
+        "GitHub",
+        "VS Code",
+        "Docker",
+        "Postman"
+      ],
+      "common_certifications": [
+        "Cloud certifications",
+        "Python certifications",
+        "Java certifications",
+        "Web development certifications"
+      ],
+      "beginner_projects": [
+        "Personal portfolio website",
+        "Todo application",
+        "Expense tracker",
+        "Student management system",
+        "REST API"
+      ],
+      "interview_topics": [
+        "Programming fundamentals",
+        "Data structures",
+        "Algorithms",
+        "Object-oriented programming",
+        "SQL",
+        "Projects",
+        "Git",
+        "Problem solving"
+      ]
+    },
+    {
+      "id": "data_analyst",
+      "name": "Data Analyst",
+      "category": "Data & Analytics",
+      "description": "Analyzes data to identify patterns, trends, and insights that support business decisions.",
+      "suitable_for": [
+        "Students interested in data",
+        "Students interested in business decisions",
+        "Students who enjoy mathematics and analytical thinking"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "BCA",
+        "B.Sc.",
+        "B.Com.",
+        "BBA",
+        "MCA",
+        "Other degrees with strong analytical skills"
+      ],
+      "important_skills": [
+        "Excel",
+        "SQL",
+        "Python",
+        "Statistics",
+        "Data visualization",
+        "Data cleaning",
+        "Analytical thinking"
+      ],
+      "common_tools": [
+        "Microsoft Excel",
+        "SQL",
+        "Python",
+        "Pandas",
+        "Power BI",
+        "Tableau"
+      ],
+      "common_certifications": [
+        "Microsoft Power BI certifications",
+        "Google Data Analytics certificate",
+        "SQL certifications",
+        "Excel certifications"
+      ],
+      "beginner_projects": [
+        "Sales dashboard",
+        "Customer analysis",
+        "E-commerce analysis",
+        "Student performance dashboard",
+        "Financial data dashboard"
+      ],
+      "interview_topics": [
+        "SQL",
+        "Excel",
+        "Statistics",
+        "Data cleaning",
+        "Data visualization",
+        "Business case studies",
+        "Projects"
+      ]
+    },
+    {
+      "id": "data_scientist",
+      "name": "Data Scientist",
+      "category": "Data & Artificial Intelligence",
+      "description": "Uses statistics, programming, machine learning, and data analysis to solve complex problems using data.",
+      "suitable_for": [
+        "Students interested in mathematics",
+        "Students interested in statistics",
+        "Students interested in machine learning",
+        "Students interested in programming"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "B.Sc.",
+        "M.Tech",
+        "MCA",
+        "M.Sc.",
+        "Other quantitative degrees"
+      ],
+      "important_skills": [
+        "Python",
+        "Statistics",
+        "Probability",
+        "Machine learning",
+        "SQL",
+        "Data visualization",
+        "Linear algebra",
+        "Data preprocessing"
+      ],
+      "common_tools": [
+        "Python",
+        "Pandas",
+        "NumPy",
+        "Scikit-learn",
+        "Jupyter",
+        "SQL",
+        "Power BI"
+      ],
+      "common_certifications": [
+        "Machine learning certifications",
+        "Cloud data certifications",
+        "Data science certifications"
+      ],
+      "beginner_projects": [
+        "House price prediction",
+        "Customer churn prediction",
+        "Movie recommendation system",
+        "Sales prediction",
+        "Customer segmentation"
+      ],
+      "interview_topics": [
+        "Statistics",
+        "Probability",
+        "Machine learning",
+        "Python",
+        "SQL",
+        "Model evaluation",
+        "Feature engineering",
+        "Projects"
+      ]
+    },
+    {
+      "id": "machine_learning_engineer",
+      "name": "Machine Learning Engineer",
+      "category": "Artificial Intelligence",
+      "description": "Builds, deploys, and maintains machine learning systems and models.",
+      "suitable_for": [
+        "Students interested in artificial intelligence",
+        "Students interested in programming",
+        "Students interested in mathematics and machine learning"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "M.Tech",
+        "MCA",
+        "M.Sc.",
+        "Other technical degrees"
+      ],
+      "important_skills": [
+        "Python",
+        "Machine learning",
+        "Deep learning",
+        "Statistics",
+        "SQL",
+        "Data structures",
+        "APIs",
+        "Model deployment",
+        "Cloud computing"
+      ],
+      "common_tools": [
+        "Python",
+        "PyTorch",
+        "TensorFlow",
+        "Scikit-learn",
+        "Docker",
+        "Git",
+        "Cloud platforms"
+      ],
+      "common_certifications": [
+        "Cloud AI certifications",
+        "Machine learning certifications",
+        "Deep learning certifications"
+      ],
+      "beginner_projects": [
+        "Image classifier",
+        "Text classification system",
+        "Recommendation system",
+        "Chatbot",
+        "Prediction API"
+      ],
+      "interview_topics": [
+        "Machine learning",
+        "Deep learning",
+        "Python",
+        "Statistics",
+        "Model evaluation",
+        "System design",
+        "Deployment",
+        "Projects"
+      ]
+    },
+    {
+      "id": "web_developer",
+      "name": "Web Developer",
+      "category": "Technology",
+      "description": "Builds and maintains websites and web applications.",
+      "suitable_for": [
+        "Students interested in websites",
+        "Students interested in application development",
+        "Beginners interested in programming"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "BCA",
+        "MCA",
+        "Diploma",
+        "Self-taught candidates with strong projects"
+      ],
+      "important_skills": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Git",
+        "Responsive design",
+        "APIs",
+        "SQL",
+        "Problem solving"
+      ],
+      "common_tools": [
+        "React",
+        "Next.js",
+        "Node.js",
+        "GitHub",
+        "VS Code",
+        "Postman"
+      ],
+      "common_certifications": [
+        "Web development certifications",
+        "JavaScript certifications",
+        "Cloud certifications"
+      ],
+      "beginner_projects": [
+        "Portfolio website",
+        "E-commerce website",
+        "Blog",
+        "Weather application",
+        "Task management application"
+      ],
+      "interview_topics": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "React",
+        "APIs",
+        "Git",
+        "Projects",
+        "Basic web security"
+      ]
+    },
+    {
+      "id": "cybersecurity_analyst",
+      "name": "Cybersecurity Analyst",
+      "category": "Cybersecurity",
+      "description": "Helps organizations identify, monitor, investigate, and respond to cybersecurity threats.",
+      "suitable_for": [
+        "Students interested in cybersecurity",
+        "Students interested in networking",
+        "Students interested in security"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "BCA",
+        "MCA",
+        "B.Sc. Computer Science",
+        "Cybersecurity-related diploma"
+      ],
+      "important_skills": [
+        "Networking",
+        "Linux",
+        "Cybersecurity fundamentals",
+        "Python",
+        "Operating systems",
+        "Security monitoring",
+        "Risk awareness"
+      ],
+      "common_tools": [
+        "Linux",
+        "Wireshark",
+        "SIEM tools",
+        "Nmap",
+        "Git"
+      ],
+      "common_certifications": [
+        "CompTIA Security+",
+        "Cisco cybersecurity certifications",
+        "Certified Ethical Hacker",
+        "Cloud security certifications"
+      ],
+      "beginner_projects": [
+        "Network monitoring lab",
+        "Log analysis project",
+        "Security awareness application",
+        "Linux security lab"
+      ],
+      "interview_topics": [
+        "Networking",
+        "TCP/IP",
+        "Linux",
+        "Authentication",
+        "Security fundamentals",
+        "Incident response",
+        "Projects"
+      ]
+    },
+    {
+      "id": "cloud_engineer",
+      "name": "Cloud Engineer",
+      "category": "Cloud Computing",
+      "description": "Designs, deploys, and maintains applications and infrastructure on cloud platforms.",
+      "suitable_for": [
+        "Students interested in infrastructure",
+        "Students interested in cloud computing",
+        "Students interested in DevOps"
+      ],
+      "common_education": [
+        "B.Tech/B.E.",
+        "BCA",
+        "MCA",
+        "Computer Science-related degrees"
+      ],
+      "important_skills": [
+        "Linux",
+        "Networking",
+        "Cloud computing",
+        "Git",
+        "Python",
+        "Containers",
+        "Security fundamentals"
+      ],
+      "common_tools": [
+        "AWS",
+        "Microsoft Azure",
+        "Google Cloud",
+        "Docker",
+        "Kubernetes",
+        "Terraform",
+        "GitHub"
+      ],
+      "common_certifications": [
+        "AWS Certified Cloud Practitioner",
+        "AWS Associate certifications",
+        "Microsoft Azure certifications",
+        "Google Cloud certifications"
+      ],
+      "beginner_projects": [
+        "Deploy a web application",
+        "Cloud-hosted API",
+        "Dockerized application",
+        "Cloud monitoring project"
+      ],
+      "interview_topics": [
+        "Cloud fundamentals",
+        "Networking",
+        "Linux",
+        "Docker",
+        "Security",
+        "Scalability",
+        "Cloud architecture"
+      ]
+    },
+    {
+      "id": "ui_ux_designer",
+      "name": "UI/UX Designer",
+      "category": "Design",
+      "description": "Designs user interfaces and user experiences for digital products.",
+      "suitable_for": [
+        "Students interested in design",
+        "Students interested in user experience",
+        "Creative students interested in technology"
+      ],
+      "common_education": [
+        "B.Des.",
+        "BFA",
+        "Design-related degrees",
+        "Any degree with a strong design portfolio"
+      ],
+      "important_skills": [
+        "User research",
+        "Wireframing",
+        "Prototyping",
+        "Visual design",
+        "Typography",
+        "User testing",
+        "Design thinking"
+      ],
+      "common_tools": [
+        "Figma",
+        "Adobe XD",
+        "Adobe Illustrator",
+        "Photoshop"
+      ],
+      "common_certifications": [
+        "UX design certifications",
+        "Google UX Design certificate",
+        "UI design certifications"
+      ],
+      "beginner_projects": [
+        "Mobile app redesign",
+        "E-commerce UX case study",
+        "Dashboard design",
+        "Mobile application prototype"
+      ],
+      "interview_topics": [
+        "Design process",
+        "User research",
+        "Wireframes",
+        "Prototypes",
+        "Design decisions",
+        "Portfolio"
+      ]
+    },
+    {
+      "id": "digital_marketing_specialist",
+      "name": "Digital Marketing Specialist",
+      "category": "Marketing",
+      "description": "Uses digital channels to promote products, services, brands, or organizations.",
+      "suitable_for": [
+        "Students interested in marketing",
+        "Students interested in social media",
+        "Students interested in content and analytics"
+      ],
+      "common_education": [
+        "BBA",
+        "B.Com.",
+        "BA",
+        "MBA",
+        "Any degree with relevant skills"
+      ],
+      "important_skills": [
+        "SEO",
+        "Content marketing",
+        "Social media",
+        "Analytics",
+        "Email marketing",
+        "Copywriting",
+        "Advertising"
+      ],
+      "common_tools": [
+        "Google Analytics",
+        "Google Ads",
+        "Meta Ads",
+        "Canva",
+        "Search Console"
+      ],
+      "common_certifications": [
+        "Google Analytics certifications",
+        "Google Ads certifications",
+        "HubSpot certifications",
+        "SEO certifications"
+      ],
+      "beginner_projects": [
+        "SEO audit",
+        "Social media campaign",
+        "Content calendar",
+        "Website traffic analysis"
+      ],
+      "interview_topics": [
+        "SEO",
+        "Digital advertising",
+        "Analytics",
+        "Content strategy",
+        "Social media",
+        "Campaign measurement"
+      ]
+    },
+    {
+      "id": "business_analyst",
+      "name": "Business Analyst",
+      "category": "Business & Technology",
+      "description": "Analyzes business needs and helps organizations improve processes, products, and decisions.",
+      "suitable_for": [
+        "Students interested in business",
+        "Students interested in technology",
+        "Students who enjoy analytical and communication work"
+      ],
+      "common_education": [
+        "BBA",
+        "B.Com.",
+        "B.Tech/B.E.",
+        "MBA",
+        "Other business or technical degrees"
+      ],
+      "important_skills": [
+        "Business analysis",
+        "Communication",
+        "Requirements gathering",
+        "Excel",
+        "SQL",
+        "Data analysis",
+        "Documentation",
+        "Problem solving"
+      ],
+      "common_tools": [
+        "Excel",
+        "Power BI",
+        "Jira",
+        "Confluence",
+        "SQL"
+      ],
+      "common_certifications": [
+        "ECBA",
+        "CBAP",
+        "Power BI certifications",
+        "Agile certifications"
+      ],
+      "beginner_projects": [
+        "Business requirements document",
+        "Process improvement case study",
+        "Sales analysis",
+        "Dashboard project"
+      ],
+      "interview_topics": [
+        "Requirements gathering",
+        "Stakeholder management",
+        "Business cases",
+        "Excel",
+        "SQL",
+        "Agile",
+        "Problem solving"
+      ]
+    }
+  ]
+}
