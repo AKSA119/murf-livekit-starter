@@ -1,0 +1,774 @@
+import logging
+import os
+
+from dotenv import load_dotenv
+
+from livekit import rtc
+from livekit.agents import (
+Agent,
+AgentServer,
+AgentSession,
+JobContext,
+JobProcess,
+RunContext,
+cli,
+function_tool,
+room_io,
+tokenize,
+)
+from livekit.plugins import (
+deepgram,
+groq,
+murf,
+noise_cancellation,
+silero,
+)
+
+from database import get_user, init_db, save_user
+
+# ============================================================
+
+# LOGGING
+
+# ============================================================
+
+logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger("careerpath-agent")
+
+# ============================================================
+
+# ENVIRONMENT
+
+# ============================================================
+
+load_dotenv(".env.local")
+
+# ============================================================
+
+# DATABASE
+
+# ============================================================
+
+init_db()
+
+logger.info(
+"Groq key loaded: %s",
+bool(os.getenv("GROQ_API_KEY")),
+)
+
+# ============================================================
+
+# SYSTEM PROMPT
+
+# ============================================================
+
+SYSTEM_PROMPT = """
+You are CareerPath AI, an Education & Career Guidance Voice Assistant.
+
+You help students and fresh graduates with:
+
+* Career guidance
+* Course selection
+* Skills
+* Certifications
+* General admission information
+* Interview preparation
+
+Your responses should normally be conversational and concise,
+around 2–4 sentences.
+
+Mirror the user's language naturally.
+
+If the user speaks Hinglish, reply naturally in Hinglish.
+
+If the user switches between Hindi and English, switch naturally.
+
+Do not invent facts.
+
+If you are unsure or information is institution-specific,
+clearly say so.
+
+GUARDRAILS:
+
+* Never guarantee admission.
+* Never guarantee scholarships.
+* Never guarantee placements.
+* Never guarantee jobs.
+* Never assist with cheating.
+* Never assist with plagiarism.
+* Never assist with fake documents.
+* Never claim to be a human counselor.
+* Never claim to be an official admission officer.
+
+If a request is outside your scope, say:
+
+"I'm sorry, but this is outside what I can safely help with.
+Please contact the institution or a qualified career counselor
+for official guidance."
+
+============================================================
+PERSISTENT MEMORY
+=================
+
+You have two memory tools:
+
+1. lookup_user
+2. save_user_memory
+
+The database is persistent memory.
+
+At the beginning of EVERY call, use lookup_user.
+
+Do NOT assume that a caller is new simply because the current
+conversation has no history.
+
+============================================================
+RETURNING CALLERS
+=================
+
+If lookup_user returns saved information:
+
+* Treat the caller as a returning caller.
+* Use the saved name if available.
+* Use the saved last topic if available.
+* Never invent information.
+
+If a saved name and previous topic exist, greet naturally.
+
+Example:
+
+"Namaste Ramesh! Last time we talked about your Data Analyst
+career plan. How is your preparation going?"
+
+If a name exists but no previous topic exists:
+
+"Namaste Ramesh! Nice to have you back. How can I help you today?"
+
+Never invent a previous topic.
+
+============================================================
+NEW CALLERS
+===========
+
+If lookup_user reports that no saved information exists,
+use this introduction:
+
+"Hello! I'm CareerPath AI, your Education & Career Guidance
+Assistant. I can help you explore courses, career options,
+skills, and general admission information. How can I help you today?"
+
+============================================================
+ASK BEFORE SAVING
+=================
+
+THIS IS A HARD RULE.
+
+NEVER call save_user_memory immediately after learning
+something useful.
+
+Before saving anything, first tell the caller exactly what
+you want to remember.
+
+Example:
+
+"I can remember that you're preparing for a Data Analyst role
+so we can continue from here next time. Is that okay?"
+
+Then WAIT for the caller's response.
+
+Only call save_user_memory after a clear affirmative answer.
+
+Examples of affirmative answers:
+
+* yes
+* yeah
+* sure
+* okay
+* that's fine
+* haan
+* haan bilkul
+* yes, remember that
+
+The following are NOT consent:
+
+* no
+* don't save it
+* maybe
+* I don't know
+* silence
+* an unrelated answer
+* an unclear answer
+* hesitation
+
+If there is any doubt, DO NOT save.
+
+You may ask again later if the information becomes relevant.
+
+============================================================
+FINANCIAL SERVICES
+==================
+
+Financial information includes:
+
+* loans
+* scholarships
+* fees
+* payments
+* financial aid
+
+Never save financial information merely because it appeared
+in the conversation.
+
+You must specifically tell the caller what financial information
+you want to remember and ask for explicit permission.
+
+Example:
+
+"I can remember that you're looking for scholarship assistance.
+Is it okay if I save that for your next call?"
+
+Only after a clear yes may you save it.
+
+If there is any doubt, do not save.
+
+============================================================
+HEALTH ACCESS
+=============
+
+Health-access information includes:
+
+* medical conditions
+* health services
+* disability access
+
+Never save health-access information merely because it appeared
+in the conversation.
+
+You must specifically identify the information and ask for
+explicit permission before saving it.
+
+If there is any doubt, do not save.
+
+============================================================
+WHAT MAY BE SAVED
+=================
+
+Useful memory can include:
+
+* caller name
+* preferred language
+* education level
+* interests
+* target career
+* short summary of the main call topic
+
+Examples:
+
+"preparing for Data Analyst interview"
+
+"choosing between BCA and BTech"
+
+"MBA admission guidance"
+
+============================================================
+MEMORY HONESTY
+==============
+
+Never invent memory.
+
+Never claim something was saved unless save_user_memory
+successfully confirms it.
+
+Never tell the caller that something is remembered if it
+was not successfully saved.
+
+Do not repeatedly ask for information the caller has already
+provided.
+"""
+
+# ============================================================
+
+# ASSISTANT
+
+# ============================================================
+
+class Assistant(Agent):
+
+def __init__(self, user_id: str) -> None:
+    self.user_id = user_id
+
+    super().__init__(
+        instructions=SYSTEM_PROMPT,
+    )
+
+# ========================================================
+# STEP 3: LOOK UP USER
+# ========================================================
+
+@function_tool(
+    raw_schema={
+        "type": "function",
+        "name": "lookup_user",
+        "description": (
+            "Look up the current caller in persistent memory. "
+            "Use this at the beginning of every call before "
+            "greeting the caller."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+)
+async def lookup_user(
+    self,
+    raw_arguments: dict,
+    context: RunContext,
+) -> str:
+
+    try:
+        user = get_user(self.user_id)
+
+        if user is None:
+            logger.info(
+                "No saved memory for user_id=%s",
+                self.user_id,
+            )
+
+            return (
+                "NO SAVED MEMORY FOUND. "
+                "This is a new caller."
+            )
+
+        facts = user.get("facts", {})
+
+        name = user.get("name") or ""
+        language = (
+            user.get("language_preference")
+            or ""
+        )
+
+        current_level = (
+            facts.get("current_level")
+            or ""
+        )
+
+        interests = (
+            facts.get("interests")
+            or ""
+        )
+
+        target_career = (
+            facts.get("target_career")
+            or ""
+        )
+
+        last_topic = (
+            user.get("last_topic")
+            or ""
+        )
+
+        last_interaction = (
+            user.get("last_interaction")
+            or ""
+        )
+
+        logger.info(
+            "Found saved memory for user_id=%s name=%s",
+            self.user_id,
+            name,
+        )
+
+        return (
+            "SAVED CALLER MEMORY:\n"
+            f"Name: {name or 'not recorded'}\n"
+            f"Preferred language: "
+            f"{language or 'not recorded'}\n"
+            f"Education level: "
+            f"{current_level or 'not recorded'}\n"
+            f"Interests: "
+            f"{interests or 'not recorded'}\n"
+            f"Target career: "
+            f"{target_career or 'not recorded'}\n"
+            f"Last topic: "
+            f"{last_topic or 'not recorded'}\n"
+            f"Last interaction: "
+            f"{last_interaction or 'not recorded'}\n"
+            "\n"
+            "Use ONLY the information above. "
+            "Do not invent anything."
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to look up user_id=%s",
+            self.user_id,
+        )
+
+        return (
+            "MEMORY LOOKUP FAILED. "
+            "Treat the caller as a new caller and "
+            "do not invent previous information."
+        )
+
+# ========================================================
+# STEP 5: SAVE USER MEMORY
+# ========================================================
+
+@function_tool(
+    raw_schema={
+        "type": "function",
+        "name": "save_user_memory",
+        "description": (
+            "Save caller information in persistent memory. "
+            "ONLY call this after the caller has clearly "
+            "and explicitly agreed to remember the specific "
+            "information being saved."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": (
+                        "Caller name that the caller "
+                        "approved for saving."
+                    ),
+                },
+                "language_preference": {
+                    "type": "string",
+                    "description": (
+                        "Preferred language that the caller "
+                        "approved for saving."
+                    ),
+                },
+                "current_level": {
+                    "type": "string",
+                    "description": (
+                        "Education level that the caller "
+                        "approved for saving."
+                    ),
+                },
+                "interests": {
+                    "type": "string",
+                    "description": (
+                        "Interests that the caller "
+                        "approved for saving."
+                    ),
+                },
+                "target_career": {
+                    "type": "string",
+                    "description": (
+                        "Target career that the caller "
+                        "approved for saving."
+                    ),
+                },
+                "topic_summary": {
+                    "type": "string",
+                    "description": (
+                        "Short summary of the call topic "
+                        "that the caller approved for saving."
+                    ),
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+)
+async def save_user_memory(
+    self,
+    raw_arguments: dict,
+    context: RunContext,
+) -> str:
+
+    try:
+        name = raw_arguments.get("name", "").strip()
+
+        language_preference = raw_arguments.get(
+            "language_preference",
+            "",
+        ).strip()
+
+        current_level = raw_arguments.get(
+            "current_level",
+            "",
+        ).strip()
+
+        interests = raw_arguments.get(
+            "interests",
+            "",
+        ).strip()
+
+        target_career = raw_arguments.get(
+            "target_career",
+            "",
+        ).strip()
+
+        topic_summary = raw_arguments.get(
+            "topic_summary",
+            "",
+        ).strip()
+
+        if not any(
+            [
+                name,
+                language_preference,
+                current_level,
+                interests,
+                target_career,
+                topic_summary,
+            ]
+        ):
+            return (
+                "Nothing was provided to save. "
+                "Do not claim that anything was saved."
+            )
+
+        # ------------------------------------------------
+        # Preserve existing fields that were not part of
+        # this particular memory update.
+        # ------------------------------------------------
+
+        existing = get_user(self.user_id)
+
+        if existing:
+            existing_facts = existing.get("facts", {})
+
+            if not name:
+                name = existing.get("name") or ""
+
+            if not language_preference:
+                language_preference = (
+                    existing.get(
+                        "language_preference"
+                    )
+                    or ""
+                )
+            if not current_level:
+                current_level = (
+                    existing_facts.get(
+                        "current_level"
+                    )
+                    or ""
+                )
+
+            if not interests:
+                interests = (
+                    existing_facts.get(
+                        "interests"
+                    )
+                    or ""
+                )
+
+            if not target_career:
+                target_career = (
+                    existing_facts.get(
+                        "target_career"
+                    )
+                    or ""
+                )
+
+            if not topic_summary:
+                topic_summary = (
+                    existing.get("last_topic")
+                    or ""
+                )
+
+        save_user(
+            user_id=self.user_id,
+            name=name,
+            language_preference=language_preference,
+            current_level=current_level,
+            interests=interests,
+            target_career=target_career,
+            last_topic=topic_summary,
+        )
+
+        logger.info(
+            "Saved approved memory for user_id=%s",
+            self.user_id,
+        )
+
+        return (
+            "The approved information was saved "
+            "successfully."
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to save memory for user_id=%s",
+            self.user_id,
+        )
+
+        return (
+            f"Memory could not be saved: {exc}"
+        )
+
+# ============================================================
+
+# LIVEKIT SERVER
+
+# ============================================================
+
+server = AgentServer()
+
+# ============================================================
+
+# PREWARM
+
+# ============================================================
+
+def prewarm(proc: JobProcess) -> None:
+proc.userdata["vad"] = silero.VAD.load()
+
+server.setup_fnc = prewarm
+
+# ============================================================
+
+# LIVEKIT SESSION
+
+# ============================================================
+
+@server.rtc_session(agent_name="my-agent")
+async def my_agent(ctx: JobContext):
+
+ctx.log_context_fields = {
+    "room": ctx.room.name,
+}
+
+logger.info(
+    "Connecting to room: %s",
+    ctx.room.name,
+)
+
+await ctx.connect()
+
+# ========================================================
+# IDENTIFY CALLER
+# ========================================================
+
+participants = list(
+    ctx.room.remote_participants.values()
+)
+
+if participants:
+
+    participant = participants[0]
+
+    user_id = participant.identity
+
+    logger.info(
+        "Caller identity: %s",
+        user_id,
+    )
+
+else:
+
+    user_id = ctx.room.name
+
+    logger.warning(
+        "No remote participant identity found. "
+        "Using room name: %s",
+        user_id,
+    )
+
+logger.info(
+    "Starting CareerPath AI for user_id=%s",
+    user_id,
+)
+
+# ========================================================
+# AGENT SESSION
+# ========================================================
+
+session = AgentSession(
+
+    stt=deepgram.STT(
+        model="nova-3",
+        language="multi",
+    ),
+
+    llm=groq.LLM(
+        model="llama-3.3-70b-versatile",
+    ),
+
+    tts=murf.TTS(
+        voice="Abhinav",
+        style="Conversational",
+        model="FALCON",
+        tokenizer=tokenize.basic.SentenceTokenizer(
+            min_sentence_len=2,
+        ),
+        text_pacing=True,
+    ),
+
+    vad=ctx.proc.userdata["vad"],
+
+    preemptive_generation=True,
+)
+
+# ========================================================
+# START SESSION
+# ========================================================
+
+await session.start(
+    agent=Assistant(
+        user_id=user_id,
+    ),
+    room=ctx.room,
+    room_options=room_io.RoomOptions(
+        audio_input=room_io.AudioInputOptions(
+            noise_cancellation=lambda params: (
+                noise_cancellation.BVCTelephony()
+                if (
+                    params.participant.kind
+                    == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                )
+                else noise_cancellation.BVC()
+            ),
+        ),
+    ),
+)
+
+# ========================================================
+# INITIAL GREETING
+# ========================================================
+
+await session.generate_reply(
+    instructions="""
+
+Start the conversation.
+
+FIRST use the lookup_user tool.
+
+Do not greet the caller until lookup_user has returned.
+
+If lookup_user returns saved memory:
+
+* Treat the caller as returning.
+* If a name exists, greet them using their name.
+* If a last topic exists, naturally reference it.
+* If no last topic exists, greet them by name and ask how
+  you can help today.
+* Never invent a name or previous topic.
+
+If lookup_user returns NO SAVED MEMORY FOUND:
+
+Use the standard new-caller introduction.
+
+Keep the greeting short and natural.
+"""
+)
+
+# ============================================================
+
+# MAIN
+
+# ============================================================
+
+if **name** == "**main**":
+cli.run_app(serve

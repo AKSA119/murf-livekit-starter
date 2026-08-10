@@ -1,0 +1,496 @@
+import logging
+import os
+
+from dotenv import load_dotenv
+
+from livekit import rtc
+from livekit.agents import (
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    JobProcess,
+    RunContext,
+    function_tool,
+    cli,
+    tokenize,
+    room_io,
+)
+from livekit.plugins import (
+    murf,
+    silero,
+    groq,
+    deepgram,
+    noise_cancellation,
+)
+
+from database import init_db, save_user, save_last_topic, get_user
+
+
+# ---------------------------------------------------------
+# Logging
+# ---------------------------------------------------------
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("agent")
+
+
+# ---------------------------------------------------------
+# Environment
+# ---------------------------------------------------------
+
+load_dotenv(".env.local")
+
+# Initialize SQLite database
+init_db()
+
+print("Groq key loaded:", bool(os.getenv("GROQ_API_KEY")))
+
+
+# ---------------------------------------------------------
+# System Prompt
+# ---------------------------------------------------------
+
+SYSTEM_PROMPT = """
+IDENTITY
+
+You are CareerPath AI, an Education & Career Guidance Voice Assistant.
+
+You help students and fresh graduates with:
+
+- Career guidance
+- Course selection
+- Skills
+- Certifications
+- General admission information
+- Interview preparation
+
+
+OBJECTIVES
+
+- Understand the user's education and career goals.
+- Provide useful guidance about careers, courses, and skills.
+- Help users explore suitable career paths.
+- Provide general admission guidance.
+- Escalate to a human counselor when a request is outside your scope.
+
+
+KNOWLEDGE
+
+You can explain:
+
+- Career paths
+- Courses
+- Eligibility
+- Certifications
+- Interview preparation
+- General admission procedures
+
+Do not invent facts.
+
+If you are unsure or information is institution-specific, clearly say so.
+
+
+LANGUAGE
+
+Mirror the user's language naturally.
+
+If the user speaks Hindi-English (Hinglish), reply naturally in the same style.
+
+If the user switches between English and Hindi, switch accordingly.
+
+Keep the conversation easy to understand.
+
+
+GUARDRAILS
+
+- Never guarantee admission.
+- Never guarantee scholarships.
+- Never guarantee placements.
+- Never guarantee jobs.
+- Never assist with cheating.
+- Never assist with plagiarism.
+- Never assist with fake documents.
+- Never claim to be a human counselor.
+- Never claim to be an official admission officer.
+
+If a request is outside your scope, say:
+
+"I'm sorry, but this is outside what I can safely help with. Please contact the institution or a qualified career counselor for official guidance."
+
+
+STYLE
+
+Keep responses conversational and concise.
+
+Normally respond in 2–4 sentences.
+
+Avoid long monologues.
+
+Speak naturally.
+
+
+MEMORY
+
+During the conversation, naturally learn useful information about the user.
+
+Useful information includes:
+
+- Their name
+- Their preferred language
+- Their current education level
+- Their interests
+- Their target career
+- A short topic summary of what this call was mainly about (for
+  example "cotton crop spraying", "resume for a Data Analyst role",
+  "MBA admission timeline")
+
+Do not ask all questions at once.
+
+Learn these details naturally during the conversation.
+
+ASK BEFORE YOU SAVE ANYTHING — THIS IS A HARD RULE.
+
+Before calling save_user_profile or save_call_topic, you must:
+
+1. Tell the caller, in your own natural words, what you want to
+   remember. For example: "I'll note down that you're preparing for a
+   Data Analyst role so I can pick this up next time — is that okay?"
+2. Wait for a clear, affirmative response (e.g. "yes", "haan", "sure",
+   "that's fine").
+3. Only then call the tool.
+
+If the caller says no, hesitates, gives an unclear answer, or does not
+respond to the question, DO NOT call the tool. Simply continue the
+conversation without saving that information. You may ask again later
+if it becomes relevant again, but never save without a fresh, clear
+yes.
+
+HARD RULE FOR FINANCIAL SERVICES AND HEALTH ACCESS TOPICS:
+
+If anything discussed touches financial services (loans, scholarships,
+fees, payments, financial aid) or health access (medical conditions,
+health services, disability access), you must be even more careful:
+
+- Never save any such detail unless the caller has explicitly and
+  unambiguously said yes to your specific request to remember it.
+- If there is ANY doubt about whether they agreed, do not save.
+- Do not save financial or health details as part of a general topic
+  summary "by accident" — call it out specifically and get explicit
+  consent for that specific detail.
+
+Saving something you should not have saved is a serious failure. When
+in doubt, don't save.
+
+Do not repeatedly ask for information the user has already provided.
+
+
+GREETING RETURNING CALLERS
+
+If you are told in your context that this caller is a returning
+caller with a known name and a known last topic, open the conversation
+by greeting them by name and referencing what you last discussed, in
+their likely language style. For example:
+
+"Namaste Ramesh, last time we spoke about your cotton. Did the
+spraying help?"
+
+If you are told this is a new/unknown caller, use the standard
+first-time introduction:
+
+"Hello! I'm CareerPath AI, your Education & Career Guidance Assistant.
+I can help you explore courses, career options, skills, and general
+admission information. How can I help you today?"
+
+Never invent a name or a past topic that was not given to you in your
+context.
+"""
+
+
+# ---------------------------------------------------------
+# CareerPath AI Assistant
+# ---------------------------------------------------------
+
+class Assistant(Agent):
+
+    def __init__(self, user_id: str, user_profile: dict | None = None) -> None:
+
+        self.user_id = user_id
+        self.user_profile = user_profile
+
+        instructions = SYSTEM_PROMPT
+
+        # Give the model the known-caller context (if any) so it can
+        # greet correctly. We never invent this data ourselves — we
+        # only pass through what's actually stored in the database.
+        if user_profile:
+            context_block = f"""
+
+CURRENT CALLER CONTEXT (from your memory of past calls)
+
+- This is a RETURNING caller.
+- Name: {user_profile.get("name") or "unknown"}
+- Preferred language: {user_profile.get("language_preference") or "unknown"}
+- Last topic discussed: {user_profile.get("last_topic") or "not recorded"}
+- Known facts: {user_profile.get("facts")}
+
+Use this to greet them by name and reference the last topic, per the
+GREETING RETURNING CALLERS section above. If "Last topic discussed" is
+"not recorded", just greet them by name and ask what's on their mind
+today — do not make up a topic.
+"""
+        else:
+            context_block = """
+
+CURRENT CALLER CONTEXT
+
+- This is a NEW / unknown caller. Use the standard first-time
+  introduction from the GREETING RETURNING CALLERS section above.
+"""
+
+        instructions = instructions + context_block
+
+        super().__init__(instructions=instructions)
+
+    @function_tool
+    async def save_user_profile(
+        self,
+        context: RunContext,
+        name: str,
+        language_preference: str = "",
+        current_level: str = "",
+        interests: str = "",
+        target_career: str = "",
+    ):
+        """
+        Save useful profile information about the current user.
+
+        ONLY call this after the caller has clearly and explicitly
+        agreed, out loud, to let you remember the specific information
+        you are about to save. Never call this proactively without
+        asking first. For any financial-services or health-access
+        detail, only save it if the caller gave explicit, unambiguous
+        consent to that specific detail.
+        """
+
+        try:
+
+            save_user(
+                user_id=self.user_id,
+                name=name,
+                language_preference=language_preference,
+                current_level=current_level,
+                interests=interests,
+                target_career=target_career,
+            )
+
+            logger.info(
+                "Saved profile for user %s",
+                self.user_id,
+            )
+
+            return "User profile saved successfully."
+
+        except Exception as e:
+
+            logger.exception(
+                "Failed to save profile for user %s",
+                self.user_id,
+            )
+
+            return f"Unable to save the profile: {e}"
+
+    @function_tool
+    async def save_call_topic(
+        self,
+        context: RunContext,
+        topic_summary: str,
+    ):
+        """
+        Save a short summary of what this call was mainly about, so a
+        future call can reference it (e.g. "cotton crop spraying",
+        "resume review for Data Analyst role").
+
+        ONLY call this after the caller has clearly and explicitly
+        agreed to let you remember what was discussed. Never call this
+        proactively without asking first. If the topic touches
+        financial services or health access, do not save it here
+        unless the caller separately and explicitly agreed to that
+        specific detail being remembered.
+        """
+
+        try:
+
+            save_last_topic(
+                user_id=self.user_id,
+                last_topic=topic_summary,
+            )
+
+            logger.info(
+                "Saved call topic for user %s",
+                self.user_id,
+            )
+
+            return "Call topic saved successfully."
+
+        except Exception as e:
+
+            logger.exception(
+                "Failed to save call topic for user %s",
+                self.user_id,
+            )
+
+            return f"Unable to save the call topic: {e}"
+
+
+# ---------------------------------------------------------
+# LiveKit Agent Server
+# ---------------------------------------------------------
+
+server = AgentServer()
+
+
+# ---------------------------------------------------------
+# Prewarm
+# ---------------------------------------------------------
+
+def prewarm(proc: JobProcess):
+
+    proc.userdata["vad"] = silero.VAD.load()
+
+
+server.setup_fnc = prewarm
+
+
+# ---------------------------------------------------------
+# Agent Session
+# ---------------------------------------------------------
+
+@server.rtc_session(agent_name="my-agent")
+async def my_agent(ctx: JobContext):
+
+    # Logging context
+    ctx.log_context_fields = {
+        "room": ctx.room.name,
+    }
+
+    # Use the LiveKit room name as the user's ID
+    user_id = "aksa_test_user"
+
+    logger.info(
+        "Starting CareerPath AI for user %s",
+        user_id,
+    )
+
+    # Look up whether we already know this caller, BEFORE the session
+    # starts, so the greeting can be personalized from the first turn.
+    user_profile = get_user(user_id)
+
+    if user_profile:
+        logger.info(
+            "Returning caller %s recognized (name=%s, last_topic=%s)",
+            user_id,
+            user_profile.get("name"),
+            user_profile.get("last_topic"),
+        )
+    else:
+        logger.info(
+            "No existing profile for %s — treating as new caller",
+            user_id,
+        )
+
+    # -----------------------------------------------------
+    # Voice AI Pipeline
+    # -----------------------------------------------------
+
+    session = AgentSession(
+
+        # Speech-to-text
+        stt=deepgram.STT(
+            model="nova-3",
+            language="multi",
+        ),
+
+        # Large Language Model
+        llm=groq.LLM(
+            model="llama-3.3-70b-versatile",
+        ),
+
+        # Text-to-speech
+        tts=murf.TTS(
+            voice="Abhinav",
+            style="Conversational",
+            model="FALCON",
+            tokenizer=tokenize.basic.SentenceTokenizer(
+                min_sentence_len=2
+            ),
+            text_pacing=True,
+        ),
+
+        # Voice activity detection
+        vad=ctx.proc.userdata["vad"],
+
+        # Generate responses before the user completely finishes
+        preemptive_generation=True,
+    )
+
+    # -----------------------------------------------------
+    # Start Session
+    # -----------------------------------------------------
+
+    await session.start(
+        agent=Assistant(user_id=user_id, user_profile=user_profile),
+        room=ctx.room,
+        room_options=room_io.RoomOptions(
+
+            audio_input=room_io.AudioInputOptions(
+
+                noise_cancellation=lambda params: (
+                    noise_cancellation.BVCTelephony()
+                    if (
+                        params.participant.kind
+                        == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                    )
+                    else noise_cancellation.BVC()
+                ),
+            ),
+        ),
+    )
+
+    # -----------------------------------------------------
+    # Connect to LiveKit room
+    # -----------------------------------------------------
+
+    await ctx.connect()
+
+    # -----------------------------------------------------
+    # Trigger the (now personalized) opening greeting
+    # -----------------------------------------------------
+    # NOTE: session.generate_reply(instructions=...) prompts the agent
+    # to speak first, using the caller context we already injected
+    # into its instructions above. If your installed version of
+    # livekit-agents names this method differently, swap this call for
+    # whatever your version uses to trigger an agent-initiated turn.
+
+    if user_profile:
+        greeting_instructions = (
+            "Greet this returning caller by name and reference the "
+            "last topic discussed, exactly as described in your "
+            "GREETING RETURNING CALLERS instructions."
+        )
+    else:
+        greeting_instructions = (
+            "Greet this new caller with the standard first-time "
+            "introduction, exactly as described in your "
+            "GREETING RETURNING CALLERS instructions."
+        )
+
+    await session.generate_reply(instructions=greeting_instructions)
+
+
+# ---------------------------------------------------------
+# Run Agent
+# ---------------------------------------------------------
+
+if __name__ == "__main__":
+    cli.run_app(server)

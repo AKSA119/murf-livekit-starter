@@ -1,3 +1,4 @@
+'use client';
 import { ReactNode, useEffect } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import { useAgent, useSessionContext } from '@livekit/components-react';

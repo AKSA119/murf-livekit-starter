@@ -1,0 +1,154 @@
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+DB_PATH = Path(__file__).parent.parent / "careerpath.db"
+
+
+def get_connection():
+    return sqlite3.connect(DB_PATH)
+
+
+def init_db():
+    conn = get_connection()
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            language_preference TEXT,
+            current_level TEXT,
+            interests TEXT,
+            target_career TEXT,
+            last_topic TEXT,
+            last_interaction TEXT
+        )
+    """)
+
+    # Migration safety net: if an older DB already exists without
+    # last_topic, add the column instead of failing.
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN last_topic TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists — nothing to do.
+        pass
+
+    conn.commit()
+    conn.close()
+
+
+def save_user(
+    user_id: str,
+    name: str,
+    language_preference: str = "",
+    current_level: str = "",
+    interests: str = "",
+    target_career: str = "",
+    last_topic: str = "",
+):
+    """
+    Insert or update a user's profile.
+
+    NOTE: last_topic is only overwritten if a non-empty value is passed,
+    so calling save_user() to update profile fields won't accidentally
+    wipe out a previously saved topic (and vice versa).
+    """
+    conn = get_connection()
+
+    existing = get_user(user_id)
+    if not last_topic and existing:
+        last_topic = existing["last_topic"]
+
+    conn.execute("""
+        INSERT INTO users (
+            user_id,
+            name,
+            language_preference,
+            current_level,
+            interests,
+            target_career,
+            last_topic,
+            last_interaction
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            name = excluded.name,
+            language_preference = excluded.language_preference,
+            current_level = excluded.current_level,
+            interests = excluded.interests,
+            target_career = excluded.target_career,
+            last_topic = excluded.last_topic,
+            last_interaction = excluded.last_interaction
+    """, (
+        user_id,
+        name,
+        language_preference,
+        current_level,
+        interests,
+        target_career,
+        last_topic,
+        datetime.now().isoformat(),
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def save_last_topic(user_id: str, last_topic: str):
+    """
+    Update only the last_topic + last_interaction fields for a user
+    who already has a profile row. Used at the end of a call once the
+    caller has agreed to let the agent remember what was discussed.
+    """
+    conn = get_connection()
+
+    conn.execute("""
+        UPDATE users
+        SET last_topic = ?,
+            last_interaction = ?
+        WHERE user_id = ?
+    """, (
+        last_topic,
+        datetime.now().isoformat(),
+        user_id,
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def get_user(user_id: str):
+    conn = get_connection()
+
+    cursor = conn.execute("""
+        SELECT
+            user_id,
+            name,
+            language_preference,
+            current_level,
+            interests,
+            target_career,
+            last_topic,
+            last_interaction
+        FROM users
+        WHERE user_id = ?
+    """, (user_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "user_id": row[0],
+        "name": row[1],
+        "language_preference": row[2],
+        "facts": {
+            "current_level": row[3],
+            "interests": row[4],
+            "target_career": row[5],
+        },
+        "last_topic": row[6],
+        "last_interaction": row[7],
+    }
