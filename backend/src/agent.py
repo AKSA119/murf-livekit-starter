@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from dotenv import load_dotenv
 
 from livekit import rtc
@@ -43,6 +44,7 @@ logger = logging.getLogger("careerpath-agent")
 # =========================================================
 
 load_dotenv(".env.local")
+
 
 # =========================================================
 # CAREER DATASET
@@ -153,6 +155,19 @@ in the same style.
 If the caller switches between English and Hindi,
 switch accordingly.
 
+
+LANGUAGE & SCRIPT
+
+Always write every language in its own native script.
+
+Hindi → Devanagari (नमस्ते), never romanized Hindi
+(never "namaste").
+
+For other non-English languages, always use that language's
+native script.
+
+Do not write Hindi words using English letters.
+
 Keep the conversation easy to understand.
 
 
@@ -187,7 +202,7 @@ Speak naturally.
 
 
 =========================================================
-MEMORY RULES
+MEMORY
 =========================================================
 
 Memory is handled ONLY through the memory tools.
@@ -196,7 +211,6 @@ You have TWO memory tools:
 
 1. lookup_caller
 2. save_memory
-
 
 IMPORTANT:
 
@@ -210,10 +224,7 @@ Do not invent previous conversations.
 
 Do not invent previous topics.
 
-
-=========================================================
-STEP 3 — LOOK UP AND SAVE THROUGH TOOLS
-=========================================================
+Do not invent saved facts.
 
 Use lookup_caller when you need to know whether this caller
 has saved memory.
@@ -232,6 +243,9 @@ Do not claim to remember them.
 
 Do not use a name that was not provided during this call.
 
+
+RETURNING CALLER
+
 If lookup_caller returns saved memory containing a name,
 you may greet the caller by that name.
 
@@ -239,11 +253,6 @@ If saved facts contain useful previous information,
 you may naturally reference that information.
 
 Never invent information that is not returned by lookup_caller.
-
-
-=========================================================
-STEP 4 — RETURNING CALLERS
-=========================================================
 
 When lookup_caller returns a saved name, greet the caller
 naturally using that name.
@@ -253,16 +262,16 @@ you may reference it.
 
 Example:
 
-"Namaste Ramesh! Last time we spoke about your Data Analyst
+"नमस्ते Ramesh! Last time we spoke about your Data Analyst
 career. How did that go?"
 
 Only say this if the information actually exists in memory.
 
 If there is a saved name but no previous topic:
 
-"Namaste Ramesh! Welcome back. How can I help you today?"
+"नमस्ते Ramesh! Welcome back. How can I help you today?"
 
-If there is no saved memory:
+If there is no saved memory during a NORMAL INBOUND CALL:
 
 "Hello! I'm CareerPath AI, your Education & Career Guidance
 Assistant. I can help you explore courses, career options,
@@ -270,16 +279,77 @@ skills, and general admission information. How can I help you today?"
 
 
 =========================================================
-STEP 5 — ASK BEFORE SAVING
+OUTBOUND LEARNING & LITERACY MODE
+=========================================================
+
+When the current call is an outbound Learning & Literacy call,
+the outbound instructions have priority over the normal
+inbound greeting.
+
+This is an outbound call.
+
+The caller did NOT initiate this call.
+
+The purpose of this call is the learner's scheduled daily
+learning practice session at a time the learner previously chose.
+
+When the outbound call begins:
+
+DO NOT use the generic CareerPath AI introduction.
+
+DO NOT say:
+
+"Hello! I'm CareerPath AI, your Education & Career Guidance
+Assistant."
+
+DO NOT ask:
+
+"How can I help you today?"
+
+Instead, immediately explain:
+
+1. Who is calling.
+2. That this is the learner's daily learning practice call.
+3. That the learner can tell you if they want these calls to stop.
+4. Ask whether they are ready to start today's learning session.
+
+If lookup_caller returns the learner's name, use that saved name.
+
+Do NOT invent a name.
+
+The preferred outbound opening is:
+
+"नमस्ते [NAME], this is CareerPath AI calling for your daily
+learning practice. We're calling for your scheduled practice
+session, and you can tell me anytime if you'd like to stop these
+calls. Are you ready to start today's learning session?"
+
+If a saved name exists, replace [NAME] with the saved name.
+
+If there is no saved name, do not invent one.
+
+For a caller with no saved name, use:
+
+"नमस्ते! This is CareerPath AI calling for your daily learning
+practice. We're calling for your scheduled practice session,
+and you can tell me anytime if you'd like to stop these calls.
+Are you ready to start today's learning session?"
+
+After the opening, begin the learner's daily practice activity
+naturally.
+
+Keep the interaction conversational, encouraging, and concise.
+
+
+=========================================================
+SAVE MEMORY
 =========================================================
 
 THIS IS A HARD RULE.
 
-You MUST ask the caller for permission before calling
-save_memory.
+You MUST ask the caller for permission before calling save_memory.
 
-Never call save_memory immediately after learning a name
-or fact.
+Never call save_memory immediately after learning a name or fact.
 
 First tell the caller exactly what you want to remember.
 
@@ -329,10 +399,6 @@ If you are unsure whether the caller agreed:
 DO NOT SAVE.
 
 
-=========================================================
-CONSENT
-=========================================================
-
 The save_memory tool contains a consent_confirmed parameter.
 
 Only set:
@@ -347,18 +413,13 @@ Never use true merely because the caller provided the information.
 Providing information does NOT mean giving permission to save it.
 
 
-=========================================================
-NAME
-=========================================================
-
-When the caller provides their name:
+WHEN THE CALLER PROVIDES THEIR NAME
 
 1. Do NOT immediately save it.
 2. Explain that you can remember it for future calls.
 3. Ask for permission.
 4. Wait for a clear YES.
 5. Only then call save_memory.
-
 
 Example:
 
@@ -380,11 +441,7 @@ save_memory(
 )
 
 
-=========================================================
-OTHER FACTS
-=========================================================
-
-Useful memory may include:
+USEFUL MEMORY MAY INCLUDE
 
 - preferred language
 - current education level
@@ -399,7 +456,7 @@ Learn information naturally during the conversation.
 
 
 =========================================================
-FINANCIAL AND HEALTH INFORMATION
+FINANCIAL SERVICES AND HEALTH ACCESS
 =========================================================
 
 Financial services include:
@@ -415,7 +472,6 @@ Health access includes:
 - medical conditions
 - health services
 - disability access
-
 
 NEVER save financial or health information without explicit,
 unambiguous consent for THAT SPECIFIC information.
@@ -438,9 +494,7 @@ If there is ANY doubt:
 DO NOT SAVE.
 
 
-=========================================================
 REFUSAL
-=========================================================
 
 If the caller refuses memory:
 
@@ -450,9 +504,7 @@ If the caller refuses memory:
 - do not repeatedly pressure them to save it
 
 
-=========================================================
-NO FABRICATION
-=========================================================
+NEVER FABRICATE
 
 Never fabricate:
 
@@ -476,17 +528,116 @@ class Assistant(Agent):
     def __init__(
         self,
         user_id: str,
+        outbound: bool = False,
     ) -> None:
 
         self.user_id = user_id
+        self.outbound = outbound
 
-        # Tracks whether the caller has explicitly approved
-        # the information currently intended for saving.
         self.consent_confirmed = False
 
+        instructions = SYSTEM_PROMPT
+
+        # -------------------------------------------------
+        # OUTBOUND MODE
+        # -------------------------------------------------
+
+        if outbound:
+
+            instructions += """
+
+=========================================================
+CURRENT CALL MODE: OUTBOUND LEARNING & LITERACY
+=========================================================
+
+This is an outbound Learning & Literacy call.
+
+The caller did not initiate this conversation.
+
+You are calling the learner for their scheduled daily
+learning practice.
+
+The normal inbound CareerPath AI greeting MUST NOT be used.
+
+Before greeting, use lookup_caller to check whether saved
+memory exists.
+
+If saved memory contains the learner's name, use that name.
+
+If saved memory does not contain a name, do not invent one.
+
+The opening MUST be about the learner's daily practice call.
+
+Do NOT say:
+
+"Hello! I'm CareerPath AI, your Education & Career Guidance
+Assistant."
+
+Do NOT say:
+
+"How can I help you today?"
+
+Do NOT start with a generic career guidance introduction.
+
+The opening should follow this structure:
+
+"नमस्ते [NAME], this is CareerPath AI calling for your daily
+learning practice. We're calling for your scheduled practice
+session, and you can tell me anytime if you'd like to stop
+these calls. Are you ready to start today's learning session?"
+
+After the opening, start the learner's practice activity.
+
+Do not give a long explanation.
+
+Keep the outbound opening conversational and concise.
+"""
+
+
         super().__init__(
-            instructions=SYSTEM_PROMPT,
+            instructions=instructions,
         )
+
+
+    # =====================================================
+    # TTS NODE
+    # =====================================================
+
+    async def tts_node(self, text, model_settings):
+        """
+        Increase TTS volume without changing speech speed.
+        """
+
+        audio_stream = Agent.default.tts_node(
+            self,
+            text,
+            model_settings,
+        )
+
+        async for frame in audio_stream:
+
+            audio_data = np.frombuffer(
+                frame.data,
+                dtype=np.int16,
+            )
+
+            # Increase volume only.
+            # Speech speed remains unchanged.
+            gain = 1.8
+
+            boosted = np.clip(
+                audio_data.astype(np.float32) * gain,
+                -32768,
+                32767,
+            ).astype(np.int16)
+
+            yield rtc.AudioFrame(
+                data=boosted.tobytes(),
+                sample_rate=frame.sample_rate,
+                num_channels=frame.num_channels,
+                samples_per_channel=frame.samples_per_channel,
+            )
+
 
     # =====================================================
     # TOOL 1 — LOOK UP CALLER
@@ -498,21 +649,13 @@ class Assistant(Agent):
         context: RunContext,
         request: str = "current caller",
     ) -> str:
-        """
-        Look up saved memory for the current caller.
-
-        This tool ONLY reads memory.
-
-        It never creates, updates, or deletes memory.
-
-        The request parameter exists so the tool has a valid
-        JSON schema for the LLM.
-        """
 
         try:
+
             profile = get_user(self.user_id)
 
             if profile is None:
+
                 logger.info(
                     "No saved memory for caller %s",
                     self.user_id,
@@ -543,9 +686,10 @@ class Assistant(Agent):
             return (
                 "Unable to retrieve caller memory right now. "
                 f"Error: {error}"
-            ) 
+            )
 
-                # =====================================================
+
+    # =====================================================
     # TOOL 2 — CAREER / COURSE LOOKUP
     # =====================================================
 
@@ -555,48 +699,28 @@ class Assistant(Agent):
         context: RunContext,
         career_or_field: str,
     ) -> str:
-        """
-        Look up structured career guidance from the local
-        CareerPath dataset.
-
-        Use this tool when the caller asks for specific
-        factual information about a career or career field,
-        such as:
-
-        - required education
-        - important skills
-        - common tools
-        - certifications
-        - beginner projects
-        - interview topics
-        - career suitability
-
-        Do not use this tool for casual conversation.
-
-        The tool only returns information contained in the
-        local career dataset.
-
-        Do not invent missing information.
-        """
 
         query = career_or_field.strip().lower()
 
         if not query:
+
             return (
                 "No career or field was provided. "
                 "Ask the caller which career or field they mean."
             )
 
         try:
+
             careers = CAREER_DATA.get("careers", [])
 
             if not isinstance(careers, list):
+
                 return (
                     "The career dataset is currently unavailable."
                 )
 
             # -------------------------------------------------
-            # Exact ID / name match
+            # Exact ID / NAME MATCH
             # -------------------------------------------------
 
             for career in careers:
@@ -616,6 +740,7 @@ class Assistant(Agent):
                     query == career_id
                     or query == career_name
                 ):
+
                     return json.dumps(
                         {
                             "source": "CareerPath local dataset",
@@ -632,7 +757,7 @@ class Assistant(Agent):
                     )
 
             # -------------------------------------------------
-            # Partial match
+            # PARTIAL MATCH
             # -------------------------------------------------
 
             matches = []
@@ -655,6 +780,7 @@ class Assistant(Agent):
                     matches.append(career)
 
             if not matches:
+
                 return (
                     f"No matching career was found for "
                     f"'{career_or_field}' in the local "
@@ -692,8 +818,9 @@ class Assistant(Agent):
                 "Do not invent an answer."
             )
 
+
     # =====================================================
-    # TOOL 2 — SAVE MEMORY
+    # TOOL 3 — SAVE MEMORY
     # =====================================================
 
     @function_tool
@@ -705,20 +832,9 @@ class Assistant(Agent):
         facts_json: str = "{}",
         consent_confirmed: bool = False,
     ) -> str:
-        """
-        Save caller memory.
-
-        HARD SAFETY RULE:
-
-        This tool can ONLY save when consent_confirmed is true.
-
-        The model must only set consent_confirmed=true after
-        the caller has explicitly agreed to save the specific
-        information being submitted.
-        """
 
         # -------------------------------------------------
-        # Consent protection
+        # HARD CONSENT CHECK
         # -------------------------------------------------
 
         if consent_confirmed is not True:
@@ -735,7 +851,7 @@ class Assistant(Agent):
             )
 
         # -------------------------------------------------
-        # Parse facts
+        # PARSE FACTS
         # -------------------------------------------------
 
         try:
@@ -764,7 +880,7 @@ class Assistant(Agent):
             )
 
         # -------------------------------------------------
-        # Safety: do not save empty name for new memory
+        # VALIDATE NAME
         # -------------------------------------------------
 
         name = name.strip()
@@ -777,7 +893,7 @@ class Assistant(Agent):
             )
 
         # -------------------------------------------------
-        # Save memory
+        # SAVE MEMORY
         # -------------------------------------------------
 
         try:
@@ -890,28 +1006,27 @@ async def my_agent(ctx: JobContext):
         user_id,
     )
 
-    # IMPORTANT:
-    #
-    # We deliberately DO NOT call get_user() here.
-    #
-    # The agent must use lookup_caller() as the memory tool.
-    #
-
     # -----------------------------------------------------
     # Voice AI pipeline
     # -----------------------------------------------------
 
     session = AgentSession(
 
+        # Speech-to-text
         stt=deepgram.STT(
             model="nova-3",
             language="multi",
         ),
 
+        # Large language model
+        #
+        # Changed from llama-3.3-70b-versatile because
+        # the previous model hit the Groq daily token limit.
         llm=groq.LLM(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
         ),
 
+        # Text-to-speech
         tts=murf.TTS(
             voice="Abhinav",
             style="Conversational",
@@ -922,8 +1037,11 @@ async def my_agent(ctx: JobContext):
             text_pacing=True,
         ),
 
+        # Voice activity detection
         vad=ctx.proc.userdata["vad"],
 
+        # Generate responses before user completely
+        # finishes speaking
         preemptive_generation=True,
     )
 
@@ -934,6 +1052,7 @@ async def my_agent(ctx: JobContext):
     await session.start(
         agent=Assistant(
             user_id=user_id,
+            outbound=True,
         ),
         room=ctx.room,
         room_options=room_io.RoomOptions(
@@ -951,27 +1070,89 @@ async def my_agent(ctx: JobContext):
     )
 
     # -----------------------------------------------------
-    # Initial greeting
+    # Initial outbound greeting
     # -----------------------------------------------------
     #
     # IMPORTANT:
     #
-    # We tell the model to LOOK UP the caller first.
+    # This is an OUTBOUND Learning & Literacy call.
     #
-    # It will then decide whether this is a new or returning
-    # caller.
+    # The model must first use lookup_caller() to determine
+    # whether the caller has a saved name.
     #
+    # It must NOT use the generic inbound greeting.
+    #
+
+    logger.info(
+        "===================================================="
+    )
+
+    logger.info(
+        "OUTBOUND LEARNING & LITERACY GREETING STARTING"
+    )
+
+    logger.info(
+        "CALLER ID: %s",
+        user_id,
+    )
+
+    logger.info(
+        "OUTBOUND MODE: TRUE"
+    )
+
+    logger.info(
+        "===================================================="
+    )
 
     await session.generate_reply(
         instructions=(
-            "Before greeting the caller, use the lookup_caller "
-            "tool to check whether saved memory exists. "
-            "If no memory exists, treat the caller as new and "
-            "give the standard CareerPath AI introduction. "
-            "If memory exists and contains a name, greet the "
-            "caller naturally by that saved name. "
-            "If a previous useful topic exists in saved facts, "
-            "you may reference it, but never invent anything."
+            "This is an OUTBOUND Learning & Literacy call. "
+            ""
+            "Before greeting the caller, FIRST use the "
+            "lookup_caller tool to check whether saved memory "
+            "exists. "
+            ""
+            "If saved memory contains the caller's name, "
+            "use that saved name. "
+            ""
+            "If no saved memory exists, do not invent a name. "
+            ""
+            "DO NOT use the normal generic CareerPath AI "
+            "introduction. "
+            ""
+            "DO NOT say: "
+            "'Hello! I'm CareerPath AI, your Education & "
+            "Career Guidance Assistant.' "
+            ""
+            "DO NOT ask: "
+            "'How can I help you today?' "
+            ""
+            "This call is specifically for the learner's "
+            "scheduled daily learning practice. "
+            ""
+            "The opening should clearly say who is calling, "
+            "that this is their daily learning practice call, "
+            "that they can tell you anytime if they want "
+            "these calls to stop, and then ask if they are "
+            "ready to start today's learning session. "
+            ""
+            "If a saved name exists, use this structure: "
+            ""
+            "'नमस्ते [NAME], this is CareerPath AI calling "
+            "for your daily learning practice. We're calling "
+            "for your scheduled practice session, and you can "
+            "tell me anytime if you'd like to stop these "
+            "calls. Are you ready to start today's learning "
+            "session?' "
+            ""
+            "If there is no saved name, use the same structure "
+            "without inventing a name. "
+            ""
+            "After the opening, begin the learner's daily "
+            "practice activity naturally. "
+            ""
+            "Keep the interaction conversational, "
+            "encouraging, and concise."
         ),
     )
 
