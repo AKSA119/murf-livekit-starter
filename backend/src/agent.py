@@ -4,6 +4,7 @@ import os
 import sqlite3
 import uuid
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from dotenv import load_dotenv
@@ -31,12 +32,10 @@ from livekit.plugins import (
 
 from database import finish_call, get_user, save_user_memory, start_call
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("careerpath-agent")
 
 load_dotenv(".env.local")
-
 
 # =========================================================
 # CAREER DATASET
@@ -50,27 +49,21 @@ def load_career_data() -> dict:
     try:
         with CAREER_DATA_PATH.open("r", encoding="utf-8") as file:
             data = json.load(file)
-
         if not isinstance(data, dict):
             raise ValueError("career_data.json must contain a JSON object.")
-
         return data
-
     except FileNotFoundError:
         logger.error("Career dataset not found at %s", CAREER_DATA_PATH)
         return {}
-
     except json.JSONDecodeError:
         logger.exception("career_data.json contains invalid JSON")
         return {}
-
     except Exception:
         logger.exception("Failed to load career dataset")
         return {}
 
 
 CAREER_DATA = load_career_data()
-
 
 # =========================================================
 # ESCALATION DATABASE
@@ -101,18 +94,12 @@ def initialize_escalation_database() -> None:
                 """
             )
             connection.commit()
-
-        logger.info(
-            "Escalation database initialized at %s",
-            DATABASE_PATH,
-        )
-
+        logger.info("Escalation database initialized at %s", DATABASE_PATH)
     except Exception:
         logger.exception("Failed to initialize escalation database")
 
 
 initialize_escalation_database()
-
 
 # =========================================================
 # SYSTEM PROMPT
@@ -123,76 +110,281 @@ IDENTITY
 
 You are CareerPath AI, an Education & Career Guidance Voice Assistant.
 
-Help students and fresh graduates with career guidance, courses, skills,
-certifications, admissions, and interview preparation.
+You help students and fresh graduates with:
+- Career guidance
+- Course selection
+- Skills
+- Certifications
+- General admission information
+- Interview preparation
 
+CORE OBJECTIVES
+
+- Understand the caller's education and career goals.
+- Provide useful guidance about careers, courses, and skills.
+- Help callers explore suitable career paths.
+- Provide general admission guidance.
+- Escalate to a human counselor when a request is outside your scope
+  or when the Learning & Literacy human-help conditions are met.
+
+KNOWLEDGE
+
+You can explain:
+- Career paths
+- Courses
+- Eligibility
+- Certifications
+- Interview preparation
+- General admission procedures
+
+Do not invent facts.
+If you are unsure or information is institution-specific, clearly say so.
+
+LANGUAGE
+
+Mirror the caller's language naturally.
+If the caller speaks Hindi-English (Hinglish), reply naturally in the same style.
+If the caller switches between English and Hindi, switch accordingly.
 
 LANGUAGE & SCRIPT
 
-- Mirror the user's language naturally.
-- Support English, Hindi, and Hinglish.
-- If the user switches language, switch naturally.
-- Always write each language in its own native script.
-- English must be written in English script.
-- Hindi must be written in Devanagari script.
-- Hindi must NEVER be written using Romanized Hindi.
-- For example, write "नमस्ते", never "namaste".
-- Do not transliterate Hindi into English letters.
-- If the user speaks Hindi, respond naturally in Hindi using Devanagari.
-- If the user speaks Hinglish, respond naturally while keeping Hindi words
-  in Devanagari and English words in English where appropriate.
-- Keep responses short and conversational.
-
-
-MEMORY
-
-- Learn the user's name, language, education, interests, and target career.
-- Use get_user_profile to check existing information.
-- Use save_user_profile only after the user gives permission to remember it.
-- Never repeatedly ask for information already known.
-
-
-HUMAN HELP
-
-- If the user needs help that you cannot safely handle, offer human assistance.
-- Before sharing information with a human, explain what you will share and ask
-  permission.
-- If the user says no, do not create an escalation.
-- If permission is given, use create_escalation.
-- Never include passwords, OTPs, PINs, account numbers, or unnecessary private
-  information.
-- After escalation, give the caller the reference ID and explain the next step.
-- Do not promise an immediate human response unless guaranteed.
-
+Always write every language in its own native script.
+Hindi → Devanagari (नमस्ते), never romanized Hindi.
+For other non-English languages, always use that language's native script.
+Do not write Hindi words using English letters.
+Keep the conversation easy to understand.
 
 GUARDRAILS
 
-- Never guarantee admission, scholarships, placements, or jobs.
-- Never assist with cheating, plagiarism, or fake documents.
-- Never claim to be human or an official admission officer.
-- Do not invent facts.
-- If unsure, clearly say so.
+- Never guarantee admission.
+- Never guarantee scholarships.
+- Never guarantee placements.
+- Never guarantee jobs.
+- Never assist with cheating.
+- Never assist with plagiarism.
+- Never assist with fake documents.
+- Never claim to be a human counselor.
+- Never claim to be an official admission officer.
 
+If a request is outside your scope, say:
+"I'm sorry, but this is outside what I can safely help with.
+Please contact the institution or a qualified career counselor
+for official guidance."
 
 STYLE
 
-- Be concise.
-- Normally answer in 1–3 sentences.
-- Avoid long explanations unless requested.
-- Speak naturally.
+Keep responses conversational and concise.
+Normally respond in 2–4 sentences.
+Avoid long monologues.
+Speak naturally.
 
+MEMORY
 
-GREETING
+Memory is handled ONLY through the memory tools.
 
-For a new caller:
+You have TWO memory tools:
+1. lookup_caller
+2. save_memory
 
-"Hello! I'm CareerPath AI. I can help with courses, careers, skills, and
-admission guidance. How can I help you today?"
+IMPORTANT:
 
-For a returning caller, greet them by name and continue from their saved
-information.
+Do NOT assume you know anything about a caller.
+A caller is unknown until lookup_caller returns saved memory.
+Do not invent a name.
+Do not invent previous conversations.
+Do not invent previous topics.
+Do not invent saved facts.
+
+Use lookup_caller when you need to know whether this caller has saved memory.
+lookup_caller ONLY reads memory. It does NOT save anything.
+
+If lookup_caller says:
+"No saved memory exists"
+then treat the caller as a completely new caller.
+Do not claim to remember them.
+Do not use a name that was not provided during this call.
+
+RETURNING CALLER
+
+If lookup_caller returns saved memory containing a name, you may greet the caller by that name.
+If saved facts contain useful previous information, you may naturally reference that information.
+Never invent information that is not returned by lookup_caller.
+
+If a previous useful topic exists in the saved facts, you may reference it.
+Example:
+"नमस्ते Ramesh! Last time we spoke about your Data Analyst career. How did that go?"
+Only say this if the information actually exists in memory.
+
+If there is a saved name but no previous topic:
+"नमस्ते Ramesh! Welcome back. How can I help you today?"
+
+If there is no saved memory during a NORMAL INBOUND CALL:
+"Hello! I'm CareerPath AI, your Education & Career Guidance Assistant. I can help you explore courses, career options, skills, and general admission information. How can I help you today?"
+
+When the current call is an outbound Learning & Literacy call, the outbound instructions have priority over the normal inbound greeting.
+
+OUTBOUND LEARNING & LITERACY
+
+This is an outbound call.
+The caller did NOT initiate this call.
+The purpose of this call is the learner's scheduled daily learning practice session at a time the learner previously chose.
+
+When the outbound call begins:
+- DO NOT use the generic CareerPath AI introduction.
+- DO NOT ask "How can I help you today?"
+- Explain who is calling.
+- Explain that this is the learner's daily learning practice call.
+- Tell the learner they can say anytime if they want these calls to stop.
+- Ask whether they are ready to start today's learning session.
+
+If lookup_caller returns the learner's name, use that saved name.
+Do NOT invent a name.
+
+Preferred opening:
+"नमस्ते [NAME], this is CareerPath AI calling for your daily learning practice. We're calling for your scheduled practice session, and you can tell me anytime if you'd like to stop these calls. Are you ready to start today's learning session?"
+
+If there is no saved name:
+"नमस्ते! This is CareerPath AI calling for your daily learning practice. We're calling for your scheduled practice session, and you can tell me anytime if you'd like to stop these calls. Are you ready to start today's learning session?"
+
+After the opening, begin the learner's daily practice naturally. If the learner asks for a math exercise, math quiz, or help with a math practice problem, use handoff_to_math_specialist so the focused specialist can continue the same conversation. Keep the interaction conversational, encouraging, and concise.
+
+HUMAN HELP / ESCALATION
+
+This agent is part of the Learning & Literacy track.
+
+Ask for human help only when:
+1. The learner is upset, distressed, or clearly frustrated and needs human support.
+2. The learner explicitly says they need help from a teacher or asks to speak with a teacher.
+
+When either situation happens:
+1. Acknowledge the learner.
+2. Explain that a human teacher/counselor can help.
+3. Briefly explain what information you would share.
+4. Ask for explicit permission.
+5. WAIT for the learner's answer.
+6. Only after a clear YES, call confirm_escalation_consent with confirmed=true.
+7. Only after consent is confirmed, call create_escalation with permission_confirmed=true.
+
+CLEAR YES:
+yes, yeah, sure, okay, that's fine, yes please, haan, bilkul.
+
+CLEAR NO:
+no, don't send it, don't share it, not now, I'd rather not, please don't.
+
+Silence is NOT consent.
+An unclear answer is NOT consent.
+
+If the learner says NO:
+- Do not create an escalation.
+- Respect the decision.
+- Continue helping normally if possible.
+
+IMPORTANT:
+Do NOT create an escalation for normal career questions, course questions, skill questions, admission questions, interview questions, or ordinary learning questions.
+
+Only create escalations for:
+- learner_upset
+- needs_teacher
+
+The escalation summary should contain:
+- Who needs help
+- What happened
+- What the agent already checked
+- How urgent it is
+- The learner's language
+- Preferred follow-up method
+
+Do NOT include:
+- passwords
+- OTPs
+- PINs
+- account numbers
+- payment credentials
+- unnecessary private information
+- the full conversation
+
+After successful escalation:
+1. Give the learner the reference ID returned by the tool.
+2. Explain that the request has been recorded for human follow-up.
+3. Do not promise an immediate response unless that is actually known.
+
+MEMORY CONSENT
+
+THIS IS A HARD RULE.
+
+You MUST ask the caller for permission before calling save_memory.
+Never call save_memory immediately after learning a name or fact.
+
+First tell the caller exactly what you want to remember.
+Example:
+"I can remember that your name is Ramesh so I can greet you by name next time. Would you like me to save that?"
+
+Then WAIT for the caller's answer.
+
+CLEAR YES:
+yes, yeah, sure, okay, that's fine, yes, remember it, haan, bilkul, yes please.
+
+CLEAR NO:
+no, don't save it, don't remember, I'd rather not, not now, please don't.
+
+Silence is NOT consent.
+An unclear answer is NOT consent.
+If you are unsure whether the caller agreed: DO NOT SAVE.
+
+The save_memory tool contains a consent_confirmed parameter.
+Only set consent_confirmed=true when the caller has clearly agreed to save the specific information being passed to save_memory.
+Providing information does NOT mean giving permission to save it.
+
+WHEN THE CALLER PROVIDES THEIR NAME
+
+1. Do NOT immediately save it.
+2. Explain that you can remember it for future calls.
+3. Ask for permission.
+4. Wait for a clear YES.
+5. Only then call save_memory.
+
+USEFUL MEMORY MAY INCLUDE
+- preferred language
+- current education level
+- interests
+- target career
+- useful career-related facts
+- short summaries of useful non-sensitive topics
+
+Do not ask for all information at once.
+Learn information naturally during the conversation.
+
+Financial services include:
+- loans
+- scholarships
+- fees
+- payments
+- financial aid
+
+Health access includes:
+- medical conditions
+- health services
+- disability access
+
+NEVER save financial or health information without explicit, unambiguous consent for THAT SPECIFIC information.
+
+If the caller refuses memory:
+- respect their decision
+- continue helping normally
+- do not save the refused information
+- do not repeatedly pressure them to save it
+
+NEVER FABRICATE
+
+Never fabricate:
+- caller name
+- previous conversations
+- previous topics
+- saved facts
+- consent
+- escalation approval
+- escalation reference IDs
 """
-
 
 # =========================================================
 # ASSISTANT
@@ -205,16 +397,31 @@ class Assistant(Agent):
         self.user_id = user_id
         self.outbound = outbound
 
-        # Explicit runtime state.
-        # The LLM cannot create an escalation unless this has been
-        # set to True by the consent tool.
+        # Explicit runtime state. The LLM cannot create an escalation
+        # unless this has been set to True by the consent tool.
         self.escalation_consent_confirmed = False
 
-        # The call is successful only when the learner completes the
-        # daily learning exercise and this state is explicitly marked.
-        self.learning_completed = False
+        # Shared runtime state passed to the focused math specialist.
+        self.completion_state = {"math_practice_completed": False}
 
-        instructions = SYSTEM_PROMPT
+        instructions = SYSTEM_PROMPT + """
+
+SPECIALIST HANDOFF
+
+- You are the main CareerPath AI agent.
+- Handle normal career, course, skill, certification, admission, and interview
+  questions yourself.
+- The Math Practice Specialist has ONE focused job: run a short math practice
+  exercise.
+- If the caller asks for math practice, asks you to quiz them on math, or asks
+  for help with a math problem that should become the practice exercise, use
+  handoff_to_math_specialist.
+- Before handing off, clearly tell the caller you are connecting them to the
+  Math Practice Specialist.
+- Do not hand off ordinary career questions that you can answer yourself.
+- Do not make the caller repeat their question. The specialist receives the
+  existing conversation context.
+"""
 
         if outbound:
             instructions += """
@@ -224,42 +431,17 @@ The caller did not initiate this conversation.
 You are calling the learner for their scheduled daily learning practice.
 
 Before greeting, use lookup_caller to check whether saved memory exists.
-
 If saved memory contains the learner's name, use that name.
 If saved memory does not contain a name, do not invent one.
 
 The normal inbound CareerPath AI greeting MUST NOT be used.
-
-Do NOT say:
-"Hello! I'm CareerPath AI, your Education & Career Guidance Assistant."
-
-Do NOT ask:
-"How can I help you today?"
-
+Do NOT say: "Hello! I'm CareerPath AI, your Education & Career Guidance Assistant."
+Do NOT ask: "How can I help you today?"
 Do NOT start with a generic career guidance introduction.
 
-The opening must say:
-1. who is calling,
-2. that this is the learner's daily learning practice call,
-3. that they can say anytime if they want these calls to stop,
-4. and ask if they are ready to start today's learning session.
+The opening must say who is calling, that this is the learner's daily learning practice call, that they can say anytime if they want these calls to stop, and ask if they are ready to start today's learning session.
 
-After the opening, start one short learning exercise.
-
-SUCCESS CONDITION:
-
-- A call is successful only when the learner completes the learning exercise.
-- Ask one clear, simple question related to learning, skills, or career
-  preparation.
-- Let the learner answer in their own words.
-- If the learner gives a reasonable answer, briefly acknowledge it and then
-  call mark_learning_complete.
-- Do NOT call mark_learning_complete merely because the learner is present,
-  says hello, agrees to start, or asks to stop.
-- If the learner refuses, hangs up, asks to stop, or never completes the
-  exercise, do not call mark_learning_complete.
-
-Keep the activity conversational, encouraging, and concise.
+After the opening, continue the learner's practice naturally. If the learner asks for a math exercise, math quiz, or help with a math practice problem, use handoff_to_math_specialist so the focused specialist can continue the same conversation. Keep the outbound opening conversational and concise.
 """
 
         super().__init__(instructions=instructions)
@@ -270,20 +452,11 @@ Keep the activity conversational, encouraging, and concise.
 
     async def tts_node(self, text, model_settings):
         """Increase TTS volume without changing speech speed."""
-        audio_stream = Agent.default.tts_node(
-            self,
-            text,
-            model_settings,
-        )
+        audio_stream = Agent.default.tts_node(self, text, model_settings)
 
         async for frame in audio_stream:
-            audio_data = np.frombuffer(
-                frame.data,
-                dtype=np.int16,
-            )
-
+            audio_data = np.frombuffer(frame.data, dtype=np.int16)
             gain = 1.8
-
             boosted = np.clip(
                 audio_data.astype(np.float32) * gain,
                 -32768,
@@ -311,32 +484,17 @@ Keep the activity conversational, encouraging, and concise.
             profile = get_user(self.user_id)
 
             if profile is None:
-                logger.info(
-                    "No saved memory for caller %s",
-                    self.user_id,
-                )
-
+                logger.info("No saved memory for caller %s", self.user_id)
                 return (
                     "No saved memory exists for this caller. "
                     "Treat this caller as new and unknown."
                 )
 
-            logger.info(
-                "Found saved memory for caller %s",
-                self.user_id,
-            )
-
-            return json.dumps(
-                profile,
-                ensure_ascii=False,
-            )
+            logger.info("Found saved memory for caller %s", self.user_id)
+            return json.dumps(profile, ensure_ascii=False)
 
         except Exception as error:
-            logger.exception(
-                "Failed to look up caller %s",
-                self.user_id,
-            )
-
+            logger.exception("Failed to look up caller %s", self.user_id)
             return (
                 "Unable to retrieve caller memory right now. "
                 f"Error: {error}"
@@ -352,7 +510,6 @@ Keep the activity conversational, encouraging, and concise.
         context: RunContext,
         career_or_field: str,
     ) -> str:
-
         query = career_or_field.strip().lower()
 
         if not query:
@@ -372,21 +529,15 @@ Keep the activity conversational, encouraging, and concise.
                 if not isinstance(career, dict):
                     continue
 
-                career_id = str(
-                    career.get("id", "")
-                ).lower()
-
-                career_name = str(
-                    career.get("name", "")
-                ).lower()
+                career_id = str(career.get("id", "")).lower()
+                career_name = str(career.get("name", "")).lower()
 
                 if query == career_id or query == career_name:
                     return json.dumps(
                         {
                             "source": "CareerPath local dataset",
                             "dataset_last_updated": CAREER_DATA.get(
-                                "last_updated",
-                                "unknown",
+                                "last_updated", "unknown"
                             ),
                             "career": career,
                         },
@@ -415,8 +566,8 @@ Keep the activity conversational, encouraging, and concise.
 
             if not matches:
                 return (
-                    f"No matching career was found for "
-                    f"'{career_or_field}' in the local CareerPath dataset. "
+                    f"No matching career was found for '{career_or_field}' "
+                    "in the local CareerPath dataset. "
                     "Do not invent career-specific facts."
                 )
 
@@ -424,8 +575,7 @@ Keep the activity conversational, encouraging, and concise.
                 {
                     "source": "CareerPath local dataset",
                     "dataset_last_updated": CAREER_DATA.get(
-                        "last_updated",
-                        "unknown",
+                        "last_updated", "unknown"
                     ),
                     "matches": matches[:5],
                 },
@@ -438,7 +588,6 @@ Keep the activity conversational, encouraging, and concise.
                 "Career lookup failed for query '%s'",
                 career_or_field,
             )
-
             return (
                 "The career information service is temporarily unavailable. "
                 "Please tell the caller that the career data could not be "
@@ -446,55 +595,35 @@ Keep the activity conversational, encouraging, and concise.
             )
 
     # =====================================================
-    # TOOL 3 — MARK LEARNING COMPLETE
+    # TOOL 3 — HAND OFF TO MATH SPECIALIST
     # =====================================================
-    
-    @function_tool(
-        raw_schema={
-            "type": "function",
-            "name": "mark_learning_complete",
-            "description": (
-                "Mark the daily learning exercise as completed. "
-                "Call this ONLY after the learner has answered the "
-                "learning exercise with a reasonable answer. "
-                "Do not call it when the learner only says hello, "
-                "agrees to start, is present, or asks to stop."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": [],
-                "additionalProperties": False,
-            },
-        }
-    )
-    async def mark_learning_complete(
+
+    @function_tool
+    async def handoff_to_math_specialist(
         self,
-        raw_arguments: dict[str, object],
         context: RunContext,
-    ) -> str:
-        """
-        Mark the daily learning exercise as completed.
-
-        This is the only action that can make the current call successful.
-        It must only be called after the learner has actually completed the
-        exercise and provided a reasonable answer.
-        """
-
-        if self.learning_completed:
-            return "The learning exercise is already marked as complete."
-
-        self.learning_completed = True
-
+        reason: str,
+    ) -> tuple[Agent, str]:
+        """Transfer the conversation to the focused Math Practice Specialist."""
         logger.info(
-            "Learning exercise completed successfully for caller %s",
+            "Handing caller %s to Math Practice Specialist. Reason: %s",
             self.user_id,
+            reason,
+        )
+
+        specialist = MathPracticeSpecialist(
+            completion_state=self.completion_state,
+            chat_ctx=context.session.current_agent.chat_ctx.copy(
+                exclude_instructions=True,
+            ),
         )
 
         return (
-            "Learning exercise marked complete. "
-            "The current call will be recorded as SUCCESS when it ends."
+            specialist,
+            "I’ll connect you to our Math Practice Specialist. "
+            "They’ll continue from here, so you do not need to repeat your question.",
         )
+
     # =====================================================
     # TOOL 4 — SAVE MEMORY
     # =====================================================
@@ -508,14 +637,12 @@ Keep the activity conversational, encouraging, and concise.
         facts_json: str = "{}",
         consent_confirmed: bool = False,
     ) -> str:
-
         # HARD CONSENT CHECK
         if consent_confirmed is not True:
             logger.warning(
                 "BLOCKED memory save without explicit consent for caller %s",
                 self.user_id,
             )
-
             return (
                 "Memory was NOT saved. Explicit caller consent "
                 "was not confirmed."
@@ -523,34 +650,27 @@ Keep the activity conversational, encouraging, and concise.
 
         # PARSE FACTS
         try:
-            parsed_facts = json.loads(
-                facts_json or "{}"
-            )
-
+            parsed_facts = json.loads(facts_json or "{}")
         except json.JSONDecodeError:
             logger.warning(
                 "Invalid facts JSON for caller %s",
                 self.user_id,
             )
-
             return (
-                "Memory was NOT saved because facts_json "
-                "was not valid JSON."
+                "Memory was NOT saved because facts_json was not valid JSON."
             )
 
         if not isinstance(parsed_facts, dict):
             return (
-                "Memory was NOT saved because facts_json "
-                "must contain a JSON object."
+                "Memory was NOT saved because facts_json must contain "
+                "a JSON object."
             )
 
         # VALIDATE NAME
         name = name.strip()
-
         if not name:
             return (
-                "Memory was NOT saved because a caller "
-                "name is required."
+                "Memory was NOT saved because a caller name is required."
             )
 
         # SAVE MEMORY
@@ -581,10 +701,7 @@ Keep the activity conversational, encouraging, and concise.
                 "Failed to save caller memory for %s",
                 self.user_id,
             )
-
-            return (
-                f"Memory could not be saved. Error: {error}"
-            )
+            return f"Memory could not be saved. Error: {error}"
 
     # =====================================================
     # TOOL 5 — CONFIRM ESCALATION CONSENT
@@ -596,6 +713,12 @@ Keep the activity conversational, encouraging, and concise.
         context: RunContext,
         confirmed: bool,
     ) -> str:
+        """
+        Record explicit learner permission for a human-help escalation.
+
+        This must only be called after the learner has clearly said YES
+        to sharing the described information with a human teacher/counselor.
+        """
 
         if confirmed is True:
             self.escalation_consent_confirmed = True
@@ -638,6 +761,12 @@ Keep the activity conversational, encouraging, and concise.
         preferred_follow_up: str,
         permission_confirmed: bool = False,
     ) -> str:
+        """
+        Create a short human-help request.
+
+        This tool MUST only be called after the learner has explicitly
+        agreed to share the specified information.
+        """
 
         # HARD PERMISSION CHECK
         if (
@@ -645,11 +774,9 @@ Keep the activity conversational, encouraging, and concise.
             or self.escalation_consent_confirmed is not True
         ):
             logger.warning(
-                "BLOCKED escalation without explicit permission "
-                "for caller %s",
+                "BLOCKED escalation without explicit permission for caller %s",
                 self.user_id,
             )
-
             return (
                 "Escalation was NOT created. The learner must explicitly "
                 "agree to share the specified information with a human "
@@ -697,9 +824,7 @@ Keep the activity conversational, encouraging, and concise.
             preferred_follow_up = "not specified"
 
         # CREATE REFERENCE ID
-        reference_id = (
-            "ESC-" + uuid.uuid4().hex[:8].upper()
-        )
+        reference_id = "ESC-" + uuid.uuid4().hex[:8].upper()
 
         # SHORT SUMMARY
         summary = (
@@ -742,7 +867,6 @@ Keep the activity conversational, encouraging, and concise.
                         preferred_follow_up,
                     ),
                 )
-
                 connection.commit()
 
             logger.info(
@@ -769,16 +893,103 @@ Keep the activity conversational, encouraging, and concise.
                 ensure_ascii=False,
             )
 
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Failed to create escalation for caller %s",
                 self.user_id,
             )
-
             return (
                 "The human-help request could not be created because of "
                 "a temporary system error."
             )
+
+
+# =========================================================
+# MATH PRACTICE SPECIALIST
+# =========================================================
+
+class MathPracticeSpecialist(Agent):
+    """Focused specialist for the Learning & Literacy math track."""
+
+    def __init__(self, completion_state: dict[str, bool], chat_ctx=None) -> None:
+        self.completion_state = completion_state
+
+        instructions = """
+ROLE
+
+You are CareerPath AI's Math Practice Specialist.
+
+ONE JOB
+
+Run one short daily math practice exercise for the learner.
+
+LIMITS
+
+- Focus only on the learner's math practice request.
+- Do not become the general career advisor.
+- Keep the exercise short, clear, and conversational.
+- Use the conversation context you received. Never ask the learner to repeat
+  the full problem they already explained.
+- Support English, Hindi, and Hinglish and mirror the learner's language.
+- If speaking Hindi, use Devanagari script, not Romanized Hindi.
+
+HANDOFF INTRODUCTION
+
+After taking over, briefly introduce yourself as the Math Practice Specialist,
+acknowledge the learner's existing request, and continue from it.
+
+PRACTICE
+
+- Ask one clear, age-appropriate math question when the learner asks for math practice.
+- Let the learner answer in their own words.
+- If the learner gives a reasonable answer, briefly acknowledge it and call
+  mark_math_practice_complete.
+- Do NOT call mark_math_practice_complete merely because the learner says hello,
+  agrees to start, is present, or asks to stop.
+- If the learner refuses, hangs up, asks to stop, or never completes the exercise,
+  do not call the tool.
+"""
+        super().__init__(instructions=instructions, chat_ctx=chat_ctx)
+
+    async def on_enter(self) -> None:
+        await self.session.generate_reply(
+            instructions=(
+                "You have just taken over as the Math Practice Specialist. "
+                "Briefly introduce yourself, acknowledge the learner's existing "
+                "math request, and ask one short math-practice question. "
+                "Do not ask them to repeat their full question."
+            ),
+        )
+
+    @function_tool(
+        raw_schema={
+            "type": "function",
+            "name": "mark_math_practice_complete",
+            "description": (
+                "Mark the daily math practice exercise as completed. "
+                "Call this ONLY after the learner has answered the math exercise "
+                "with a reasonable answer. Do not call it when the learner only "
+                "says hello, agrees to start, is present, or asks to stop."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    )
+    async def mark_math_practice_complete(
+        self,
+        raw_arguments: dict[str, object],
+        context: RunContext,
+    ) -> str:
+        """Mark the focused math practice exercise as completed."""
+        if self.completion_state.get("math_practice_completed", False):
+            return "The math practice exercise is already marked as complete."
+        self.completion_state["math_practice_completed"] = True
+        logger.info("Math practice exercise completed successfully")
+        return "Math practice marked complete. The learner successfully completed the specialist exercise."
 
 
 # =========================================================
@@ -807,14 +1018,10 @@ server.setup_fnc = prewarm
 
 def get_caller_id(ctx: JobContext) -> str:
     """Get the anonymous caller ID from the LiveKit participant."""
-
-    participants = list(
-        ctx.room.remote_participants.values()
-    )
+    participants = list(ctx.room.remote_participants.values())
 
     if participants:
         identity = participants[0].identity
-
         if identity:
             return identity
 
@@ -854,30 +1061,13 @@ async def my_agent(ctx: JobContext):
     # -----------------------------------------------------
 
     call_id = ctx.room.name
-
-    try:
-        start_call(
-            call_id=call_id,
-            user_id=user_id,
-        )
-
-        logger.info(
-            "Call outcome tracking started for call %s",
-            call_id,
-        )
-
-    except Exception:
-        logger.exception(
-            "Failed to create call outcome record for call %s",
-            call_id,
-        )
+    start_call(call_id=call_id, user_id=user_id)
 
     # -----------------------------------------------------
     # Voice AI pipeline
     # -----------------------------------------------------
 
     session = AgentSession(
-
         # Speech-to-text
         stt=deepgram.STT(
             model="nova-3",
@@ -885,13 +1075,11 @@ async def my_agent(ctx: JobContext):
         ),
 
         # Large language model
-        # KEEPING GROQ AS REQUESTED
         llm=groq.LLM(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant"
         ),
 
         # Text-to-speech
-        # Recommended Murf voice
         tts=murf.TTS(
             voice="Abhinav",
             style="Conversational",
@@ -910,7 +1098,7 @@ async def my_agent(ctx: JobContext):
     )
 
     # -----------------------------------------------------
-    # Start agent
+    # Start agent + track call outcome
     # -----------------------------------------------------
 
     assistant = Assistant(
@@ -921,32 +1109,23 @@ async def my_agent(ctx: JobContext):
     def on_session_close(event) -> None:
         outcome = (
             "SUCCESS"
-            if assistant.learning_completed
+            if assistant.completion_state.get("math_practice_completed", False)
             else "FAILED"
         )
-
         try:
-            finish_call(
-                call_id=call_id,
-                outcome=outcome,
-            )
-
+            finish_call(call_id=call_id, outcome=outcome)
             logger.info(
                 "Call %s finished with outcome=%s",
                 call_id,
                 outcome,
             )
-
         except Exception:
             logger.exception(
                 "Failed to save outcome for call %s",
                 call_id,
             )
 
-    session.on(
-        "close",
-        on_session_close,
-    )
+    session.on("close", on_session_close)
 
     await session.start(
         agent=assistant,
@@ -969,74 +1148,39 @@ async def my_agent(ctx: JobContext):
     # Initial outbound greeting
     # -----------------------------------------------------
 
-    logger.info(
-        "===================================================="
-    )
-    logger.info(
-        "OUTBOUND LEARNING & LITERACY GREETING STARTING"
-    )
-    logger.info(
-        "CALLER ID: %s",
-        user_id,
-    )
-    logger.info(
-        "OUTBOUND MODE: TRUE"
-    )
-    logger.info(
-        "===================================================="
-    )
+    logger.info("====================================================")
+    logger.info("OUTBOUND LEARNING & LITERACY GREETING STARTING")
+    logger.info("CALLER ID: %s", user_id)
+    logger.info("OUTBOUND MODE: TRUE")
+    logger.info("====================================================")
 
     await session.generate_reply(
         instructions=(
             "This is an OUTBOUND Learning & Literacy call. "
-
             "Before greeting the caller, FIRST use the lookup_caller tool "
             "to check whether saved memory exists. "
-
             "If saved memory contains the caller's name, use that saved name. "
             "If no saved memory exists, do not invent a name. "
-
             "DO NOT use the normal generic CareerPath AI introduction. "
             "DO NOT ask 'How can I help you today?' "
-
             "This call is specifically for the learner's scheduled daily "
             "learning practice. "
-
             "The opening should clearly say who is calling, that this is "
             "their daily learning practice call, that they can tell you "
             "anytime if they want these calls to stop, and then ask if they "
             "are ready to start today's learning session. "
-
             "If a saved name exists, use this structure: "
-            "'नमस्ते [NAME], CareerPath AI की ओर से आपकी दैनिक learning "
-            "practice के लिए कॉल है। यह आपकी scheduled practice session है, "
-            "और अगर आप चाहें तो किसी भी समय कह सकते हैं कि आप इन calls को "
-            "बंद करना चाहते हैं। क्या आप आज का learning session शुरू करने "
-            "के लिए तैयार हैं?' "
-
+            "'नमस्ते [NAME], this is CareerPath AI calling for your daily "
+            "learning practice. We're calling for your scheduled practice "
+            "session, and you can tell me anytime if you'd like to stop these "
+            "calls. Are you ready to start today's learning session?' "
             "If there is no saved name, use the same structure without "
             "inventing a name. "
-
-            "IMPORTANT LANGUAGE AND SCRIPT RULE: "
-            "If speaking Hindi, write Hindi in Devanagari script. "
-            "Never write Hindi using Romanized Hindi. "
-            "For example, use 'नमस्ते', never 'namaste'. "
-
-            "After the opening, begin one short learning exercise. "
-
-            "Ask one clear question related to learning, skills, or career "
-            "preparation, and let the learner answer in their own words. "
-
-            "If the learner gives a reasonable answer, briefly acknowledge "
-            "it and call the mark_learning_complete tool. "
-
-            "Do NOT call that tool merely because the learner is present, "
-            "says hello, agrees to start, or asks to stop. "
-
-            "If the learner refuses, hangs up, asks to stop, or never "
-            "completes the exercise, do not call the tool. "
-
-            "Keep the interaction conversational, encouraging, and concise."
+            "After the opening, begin the learner's daily practice naturally. "
+            "If the learner asks for a math exercise, math quiz, or help with a "
+            "math practice problem, use handoff_to_math_specialist so the focused "
+            "specialist can continue the same conversation. Keep the interaction "
+            "conversational, encouraging, and concise."
         ),
     )
 
